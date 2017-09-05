@@ -68,23 +68,23 @@ public class Lab1 {
   private void initSensorIDs() {
     sensorIDs = new HashMap<>();
 
-    sensorIDs.put(SensorID.UPPER_STATION_HALT_A, new int[]{13, 3});
-    sensorIDs.put(SensorID.UPPER_STATION_HALT_B, new int[]{13, 5});
-    sensorIDs.put(SensorID.UPPER_STATION_SWITCH_A, new int[]{15, 7});
+    sensorIDs.put(SensorID.UPPER_STATION_HALT_A, new int[]{14, 3});
+    sensorIDs.put(SensorID.UPPER_STATION_HALT_B, new int[]{14, 5});
+    sensorIDs.put(SensorID.UPPER_STATION_SWITCH_A, new int[]{14, 7});
     sensorIDs.put(SensorID.UPPER_STATION_SWITCH_B, new int[]{15, 8});
 
-    sensorIDs.put(SensorID.MEETING_EAST_A, new int[]{13, 9});
+    sensorIDs.put(SensorID.MEETING_EAST_A, new int[]{12, 9});
     sensorIDs.put(SensorID.MEETING_EAST_B, new int[]{13, 10});
-    sensorIDs.put(SensorID.MEETING_WEST_A, new int[]{6, 9});
+    sensorIDs.put(SensorID.MEETING_WEST_A, new int[]{7, 9});
     sensorIDs.put(SensorID.MEETING_WEST_B, new int[]{6, 10});
 
-    sensorIDs.put(SensorID.LOWER_STATION_SWITCH_A, new int[]{5, 11});
+    sensorIDs.put(SensorID.LOWER_STATION_SWITCH_A, new int[]{6, 11});
     sensorIDs.put(SensorID.LOWER_STATION_SWITCH_B, new int[]{4, 13});
-    sensorIDs.put(SensorID.LOWER_STATION_HALT_A, new int[]{13, 11});
-    sensorIDs.put(SensorID.LOWER_STATION_HALT_B, new int[]{13, 13});
+    sensorIDs.put(SensorID.LOWER_STATION_HALT_A, new int[]{14, 11});
+    sensorIDs.put(SensorID.LOWER_STATION_HALT_B, new int[]{14, 13});
 
-    sensorIDs.put(SensorID.CROSSING_HORI_A, new int[]{6, 7});
-    sensorIDs.put(SensorID.CROSSING_HORI_B, new int[]{10, 7});
+    sensorIDs.put(SensorID.CROSSING_HORI_A, new int[]{6, 6});
+    sensorIDs.put(SensorID.CROSSING_HORI_B, new int[]{11, 7});
     sensorIDs.put(SensorID.CROSSING_VERT_A, new int[]{8, 5});
     sensorIDs.put(SensorID.CROSSING_VERT_B, new int[]{10, 8});
   }
@@ -124,6 +124,12 @@ public class Lab1 {
         while (true) {
           SensorEvent s = tsi.getSensor(id);
 
+          // if (s.getStatus() == s.ACTIVE) {
+          //   System.out.println("Middle permits: "+semMiddle.availablePermits());
+          //   System.out.println("Lower permits:  "+semLowerStation.availablePermits());
+          //   System.out.println("Upper permits:  "+semUpperStation.availablePermits());
+          // }
+
           // *** West critical region - lower station switch ***
           if (s.getStatus() == s.ACTIVE //&& atStation
                 && (isSensor(s, SensorID.LOWER_STATION_SWITCH_A)
@@ -134,6 +140,18 @@ public class Lab1 {
               setSpeed(0);
               semWestCritical.acquire();
               setSpeed(previousSpeed);
+              if (semLowerStation.availablePermits() == 0)
+                semLowerStation.release();
+              
+              boolean success = semMiddle.tryAcquire();
+              if (success) {
+                // semMiddle.acquire();
+                setSwitch(2, tsi.SWITCH_LEFT);
+                // System.out.println("Middle acquired? "+semMiddle.availablePermits());
+              } else {
+                setSwitch(2, tsi.SWITCH_RIGHT);
+              }
+
               if (isSensor(s, SensorID.LOWER_STATION_SWITCH_A)) {
                 setSwitch(3, tsi.SWITCH_LEFT);
               } else if (isSensor(s, SensorID.LOWER_STATION_SWITCH_B)) {
@@ -144,6 +162,11 @@ public class Lab1 {
 
             } else {
               semWestCritical.release();
+              // if (isSensor(s, SensorID.LOWER_STATION_SWITCH_A)) {
+              //   setSwitch(3, tsi.SWITCH_RIGHT);
+              // } else if (isSensor(s, SensorID.LOWER_STATION_SWITCH_B)) {
+              //   setSwitch(3, tsi.SWITCH_LEFT);
+              // }
             }
           }
 
@@ -157,6 +180,18 @@ public class Lab1 {
               setSpeed(0);
               semWestCritical.acquire();
               setSpeed(previousSpeed);
+              if (semMiddle.availablePermits() == 0)
+                semMiddle.release();
+
+              boolean success = semLowerStation.tryAcquire();
+              if (success) {
+                // semLowerStation.acquire();
+                setSwitch(3, tsi.SWITCH_LEFT);
+                // System.out.println("Lower acquired? "+semLowerStation.availablePermits());
+              } else {
+                setSwitch(3, tsi.SWITCH_RIGHT);
+              }
+
               if (isSensor(s, SensorID.MEETING_WEST_A)) {
                 setSwitch(2, tsi.SWITCH_LEFT);
               } else if (isSensor(s, SensorID.MEETING_WEST_B)) {
@@ -165,8 +200,15 @@ public class Lab1 {
 
               inMiddle = false;
             } else {
-              inMiddle = true;
               semWestCritical.release();
+
+              // if (isSensor(s, SensorID.MEETING_WEST_A)) {
+              //   setSwitch(2, tsi.SWITCH_RIGHT);
+              // } else if (isSensor(s, SensorID.MEETING_WEST_B)) {
+              //   setSwitch(2, tsi.SWITCH_LEFT);
+              // }
+
+              inMiddle = true;
             }
           }
 
@@ -176,19 +218,80 @@ public class Lab1 {
                 || isSensor(s, SensorID.MEETING_EAST_B))) {
 
             if (inMiddle) {
+              int previousSpeed = speed;
+              setSpeed(0);
+              semEastCritical.acquire();
+              setSpeed(previousSpeed);
+              if (semMiddle.availablePermits() == 0)
+                semMiddle.release();
+
+              boolean success = semUpperStation.tryAcquire();
+              if (success) {
+                // semUpperStation.acquire();
+                setSwitch(0, tsi.SWITCH_RIGHT);
+                // System.out.println("Upper acquired? "+semUpperStation.availablePermits());
+              } else {
+                setSwitch(0, tsi.SWITCH_LEFT);
+              }
+
+              if (isSensor(s, SensorID.MEETING_EAST_A)) {
+                setSwitch(1, tsi.SWITCH_RIGHT);
+              } else if (isSensor(s, SensorID.MEETING_EAST_B)) {
+                setSwitch(1, tsi.SWITCH_LEFT);
+              }
 
               inMiddle = false;
             } else {
+              semEastCritical.release();
+
+              // if (isSensor(s, SensorID.MEETING_EAST_A)) {
+              //   setSwitch(1, tsi.SWITCH_LEFT);
+              // } else if (isSensor(s, SensorID.MEETING_EAST_B)) {
+              //   setSwitch(1, tsi.SWITCH_RIGHT);
+              // }
+              
               inMiddle = true;
             }
           }
 
           // *** East critical region - upper station switch ***
-          if (s.getStatus() == s.ACTIVE && atStation
+          if (s.getStatus() == s.ACTIVE //&& atStation
                 && (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
                 || isSensor(s, SensorID.UPPER_STATION_SWITCH_B))) {
 
-            atStation = false;
+            if (atStation) {
+              int previousSpeed = speed;
+              setSpeed(0);
+              semEastCritical.acquire();
+              setSpeed(previousSpeed);
+              if (semUpperStation.availablePermits() == 0)
+                semUpperStation.release();
+              
+              boolean success = semMiddle.tryAcquire();
+              if (success) {
+                // semMiddle.acquire();
+                setSwitch(1, tsi.SWITCH_RIGHT);
+                // System.out.println("Middle acquired? "+semMiddle.availablePermits());
+              } else {
+                setSwitch(1, tsi.SWITCH_LEFT);
+              }
+
+              if (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)) {
+                setSwitch(0, tsi.SWITCH_RIGHT);
+              } else if (isSensor(s, SensorID.UPPER_STATION_SWITCH_B)) {
+                setSwitch(0, tsi.SWITCH_LEFT);
+              }
+
+              atStation = false;
+
+            } else {
+              semEastCritical.release();
+              // if (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)) {
+              //   setSwitch(0, tsi.SWITCH_LEFT);
+              // } else if (isSensor(s, SensorID.UPPER_STATION_SWITCH_B)) {
+              //   setSwitch(0, tsi.SWITCH_RIGHT);
+              // }
+            }
           }
 
           // *** Stopping at stations ***
