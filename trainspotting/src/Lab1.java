@@ -1,4 +1,5 @@
 import TSim.*;
+import java.util.*;
 import java.util.concurrent.*;
 
 public class Lab1 {
@@ -11,30 +12,32 @@ public class Lab1 {
     {3, 11}             // 3 lower station
   };
 
-  public int[][] sensorIDs = {
-    {13, 3}, {13, 5},   // 0,1 upper station halt
-    {15, 7}, {15, 8},   // 2,3 upper station switch
-    {18, 7}, {16, 9},   // 4,5 east critical section
-    {14, 9}, {14, 10},  // 6,7 meeting section, east switch
-    {5, 9}, {5, 10},    // 8,9 meeting section, west switch
-    {3, 9}, {2, 11},    // 10,11 west critical section
-    {5, 11}, {4, 13},   // 12,13 lower station switch
-    {13, 11}, {13, 13}  // 14,15 lower station halt
-  };
+  public enum SensorID {
+    UPPER_STATION_HALT_A, UPPER_STATION_HALT_B,
+    UPPER_STATION_SWITCH_A, UPPER_STATION_SWITCH_B,
+    MEETING_EAST_A, MEETING_EAST_B,
+    MEETING_WEST_A, MEETING_WEST_B,
+    LOWER_STATION_SWITCH_A, LOWER_STATION_SWITCH_B,
+    LOWER_STATION_HALT_A, LOWER_STATION_HALT_B,
+    CROSSING_HORI_A, CROSSING_HORI_B,
+    CROSSING_VERT_A, CROSSING_VERT_B
+  }
+
+  public Map<SensorID, int[]> sensorIDs;
 
   public Semaphore semUpperStation = new Semaphore(1);
   public Semaphore semLowerStation = new Semaphore(1);
   public Semaphore semWestCritical = new Semaphore(1);
   public Semaphore semEastCritical = new Semaphore(1);
   public Semaphore semMiddle = new Semaphore(1);
+  public Semaphore semCrossing = new Semaphore(1);
 
   public Lab1(Integer speed1, Integer speed2) {
+    initSensorIDs();
+
     try {
       // setSwitch(0, tsi.SWITCH_RIGHT);
       setSwitch(1, tsi.SWITCH_RIGHT);
-
-      // tsi.setSpeed(1,speed1);
-      // tsi.setSpeed(2,speed2);
 
       Train train1 = new Train(1);
       Train train2 = new Train(2);
@@ -54,13 +57,37 @@ public class Lab1 {
     }
   }
 
+  private void initSensorIDs() {
+    sensorIDs = new HashMap<>();
+
+    sensorIDs.put(SensorID.UPPER_STATION_HALT_A, new int[]{13, 3});
+    sensorIDs.put(SensorID.UPPER_STATION_HALT_B, new int[]{13, 5});
+    sensorIDs.put(SensorID.UPPER_STATION_SWITCH_A, new int[]{15, 7});
+    sensorIDs.put(SensorID.UPPER_STATION_SWITCH_B, new int[]{15, 8});
+
+    sensorIDs.put(SensorID.MEETING_EAST_A, new int[]{13, 9});
+    sensorIDs.put(SensorID.MEETING_EAST_B, new int[]{13, 10});
+    sensorIDs.put(SensorID.MEETING_WEST_A, new int[]{6, 9});
+    sensorIDs.put(SensorID.MEETING_WEST_B, new int[]{6, 10});
+
+    sensorIDs.put(SensorID.LOWER_STATION_SWITCH_A, new int[]{5, 11});
+    sensorIDs.put(SensorID.LOWER_STATION_SWITCH_B, new int[]{4, 13});
+    sensorIDs.put(SensorID.LOWER_STATION_HALT_A, new int[]{13, 11});
+    sensorIDs.put(SensorID.LOWER_STATION_HALT_B, new int[]{13, 13});
+
+    sensorIDs.put(SensorID.CROSSING_HORI_A, new int[]{6, 7});
+    sensorIDs.put(SensorID.CROSSING_HORI_B, new int[]{10, 7});
+    sensorIDs.put(SensorID.CROSSING_VERT_A, new int[]{8, 5});
+    sensorIDs.put(SensorID.CROSSING_VERT_B, new int[]{10, 8});
+  }
+
   private void setSwitch(int switchID, int switchDir) throws CommandException {
     int[] switchPos = switchIDs[switchID];
     tsi.setSwitch(switchPos[0], switchPos[1], switchDir);
   }
 
-  private boolean isSensor(SensorEvent sensorEvent, int sensorID) {
-    int[] sensorPos = sensorIDs[sensorID];
+  private boolean isSensor(SensorEvent sensorEvent, SensorID sensorID) {
+    int[] sensorPos = sensorIDs.get(sensorID);
     return (sensorEvent.getXpos() == sensorPos[0]
       && sensorEvent.getYpos() == sensorPos[1]);
   }
@@ -88,20 +115,26 @@ public class Lab1 {
           SensorEvent s = tsi.getSensor(id);
 
           // *** Stopping at stations ***
-          if ((isSensor(s, 0) || isSensor(s, 1) ||
-                isSensor(s, 14) || isSensor(s, 15)) && !atStation) {
+          if ((isSensor(s, SensorID.UPPER_STATION_HALT_A)
+                || isSensor(s, SensorID.UPPER_STATION_HALT_B)
+                || isSensor(s, SensorID.LOWER_STATION_HALT_A)
+                || isSensor(s, SensorID.LOWER_STATION_HALT_B))
+                && !atStation) {
             atStation = true;
             int previousSpeed = speed;
             setSpeed(0);
             Thread.sleep(1000 + (20 * Math.abs(previousSpeed)));
             setSpeed(-previousSpeed);
 
-          } else if ((isSensor(s, 2) || isSensor(s, 3)
-                || isSensor(s, 12) || isSensor(s, 13)) && atStation) {
+          } else if ((isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
+                || isSensor(s, SensorID.UPPER_STATION_SWITCH_B)
+                || isSensor(s, SensorID.LOWER_STATION_SWITCH_A)
+                || isSensor(s, SensorID.LOWER_STATION_SWITCH_B))
+                && atStation) {
             atStation = false;
           }
 
-          
+
         }
       } catch (CommandException e) {
         e.printStackTrace();
