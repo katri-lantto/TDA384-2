@@ -42,7 +42,7 @@ public class Lab1 {
       Train train1 = new Train(1);
       Train train2 = new Train(2);
 
-      // train1.setSpeed(speed1);
+      train1.setSpeed(speed1);
       train2.setSpeed(speed2);
 
       Thread trainThread1 = new Thread(train1);
@@ -115,7 +115,8 @@ public class Lab1 {
           SensorEvent s = tsi.getSensor(id);
 
           // *** Stopping at stations ***
-          if ((isSensor(s, SensorID.UPPER_STATION_HALT_A)
+          if (s.getStatus() == s.ACTIVE
+                && (isSensor(s, SensorID.UPPER_STATION_HALT_A)
                 || isSensor(s, SensorID.UPPER_STATION_HALT_B)
                 || isSensor(s, SensorID.LOWER_STATION_HALT_A)
                 || isSensor(s, SensorID.LOWER_STATION_HALT_B))
@@ -126,12 +127,32 @@ public class Lab1 {
             Thread.sleep(1000 + (20 * Math.abs(previousSpeed)));
             setSpeed(-previousSpeed);
 
-          } else if ((isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
+          } else if (s.getStatus() == s.ACTIVE
+                && (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
                 || isSensor(s, SensorID.UPPER_STATION_SWITCH_B)
                 || isSensor(s, SensorID.LOWER_STATION_SWITCH_A)
                 || isSensor(s, SensorID.LOWER_STATION_SWITCH_B))
                 && atStation) {
             atStation = false;
+          }
+
+          // *** Railway crossing ***
+          if (s.getStatus() == s.ACTIVE
+                && (isSensor(s, SensorID.CROSSING_HORI_A)
+                || isSensor(s, SensorID.CROSSING_HORI_B)
+                || isSensor(s, SensorID.CROSSING_VERT_A)
+                || isSensor(s, SensorID.CROSSING_VERT_B) )) {
+            if ((atStation && (isSensor(s, SensorID.CROSSING_HORI_A)
+                  || isSensor(s, SensorID.CROSSING_VERT_A)))
+                  || (!atStation && (isSensor(s, SensorID.CROSSING_HORI_B)
+                  || isSensor(s, SensorID.CROSSING_VERT_B)))   ) {
+              int previousSpeed = speed;
+              setSpeed(0);
+              semCrossing.acquire();
+              setSpeed(previousSpeed);
+            } else {
+              semCrossing.release();
+            }
           }
 
 
