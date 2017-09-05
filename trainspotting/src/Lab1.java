@@ -36,11 +36,16 @@ public class Lab1 {
     initSensorIDs();
 
     try {
-      // setSwitch(0, tsi.SWITCH_RIGHT);
+      setSwitch(0, tsi.SWITCH_RIGHT); // temporary
       setSwitch(1, tsi.SWITCH_RIGHT);
+
+      setSwitch(3, tsi.SWITCH_RIGHT);
 
       Train train1 = new Train(1);
       Train train2 = new Train(2);
+
+      semUpperStation.acquire();
+      semLowerStation.acquire();
 
       train1.setSpeed(speed1);
       train2.setSpeed(speed2);
@@ -53,6 +58,9 @@ public class Lab1 {
     }
     catch (CommandException e) {
       e.printStackTrace();    // or only e.getMessage() for the error
+      System.exit(1);
+    }catch (InterruptedException e) {
+      e.printStackTrace();
       System.exit(1);
     }
   }
@@ -97,10 +105,12 @@ public class Lab1 {
     private int id;
     private int speed;
     private boolean atStation;
+    private boolean inMiddle;
 
     public Train (int id) {
       this.id = id;
       atStation = true;
+      inMiddle = false;
     }
 
     public void setSpeed(int speed) throws CommandException {
@@ -113,6 +123,73 @@ public class Lab1 {
 
         while (true) {
           SensorEvent s = tsi.getSensor(id);
+
+          // *** West critical region - lower station switch ***
+          if (s.getStatus() == s.ACTIVE //&& atStation
+                && (isSensor(s, SensorID.LOWER_STATION_SWITCH_A)
+                || isSensor(s, SensorID.LOWER_STATION_SWITCH_B))) {
+
+            if (atStation) {
+              int previousSpeed = speed;
+              setSpeed(0);
+              semWestCritical.acquire();
+              setSpeed(previousSpeed);
+              if (isSensor(s, SensorID.LOWER_STATION_SWITCH_A)) {
+                setSwitch(3, tsi.SWITCH_LEFT);
+              } else if (isSensor(s, SensorID.LOWER_STATION_SWITCH_B)) {
+                setSwitch(3, tsi.SWITCH_RIGHT);
+              }
+
+              atStation = false;
+
+            } else {
+              semWestCritical.release();
+            }
+          }
+
+          // *** West critical region - middle west switch ***
+          if (s.getStatus() == s.ACTIVE //&& inMiddle
+                && (isSensor(s, SensorID.MEETING_WEST_A)
+                || isSensor(s, SensorID.MEETING_WEST_B))) {
+
+            if (inMiddle) {
+              int previousSpeed = speed;
+              setSpeed(0);
+              semWestCritical.acquire();
+              setSpeed(previousSpeed);
+              if (isSensor(s, SensorID.MEETING_WEST_A)) {
+                setSwitch(2, tsi.SWITCH_LEFT);
+              } else if (isSensor(s, SensorID.MEETING_WEST_B)) {
+                setSwitch(2, tsi.SWITCH_RIGHT);
+              }
+
+              inMiddle = false;
+            } else {
+              inMiddle = true;
+              semWestCritical.release();
+            }
+          }
+
+          // *** East critical region - middle east switch ***
+          if (s.getStatus() == s.ACTIVE
+                && (isSensor(s, SensorID.MEETING_EAST_A)
+                || isSensor(s, SensorID.MEETING_EAST_B))) {
+
+            if (inMiddle) {
+
+              inMiddle = false;
+            } else {
+              inMiddle = true;
+            }
+          }
+
+          // *** East critical region - upper station switch ***
+          if (s.getStatus() == s.ACTIVE && atStation
+                && (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
+                || isSensor(s, SensorID.UPPER_STATION_SWITCH_B))) {
+
+            atStation = false;
+          }
 
           // *** Stopping at stations ***
           if (s.getStatus() == s.ACTIVE
@@ -127,13 +204,13 @@ public class Lab1 {
             Thread.sleep(1000 + (20 * Math.abs(previousSpeed)));
             setSpeed(-previousSpeed);
 
-          } else if (s.getStatus() == s.ACTIVE
-                && (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
-                || isSensor(s, SensorID.UPPER_STATION_SWITCH_B)
-                || isSensor(s, SensorID.LOWER_STATION_SWITCH_A)
-                || isSensor(s, SensorID.LOWER_STATION_SWITCH_B))
-                && atStation) {
-            atStation = false;
+          // } else if (s.getStatus() == s.ACTIVE
+          //       && (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
+          //       || isSensor(s, SensorID.UPPER_STATION_SWITCH_B)
+          //       || isSensor(s, SensorID.LOWER_STATION_SWITCH_A)
+          //       || isSensor(s, SensorID.LOWER_STATION_SWITCH_B))
+          //       && atStation) {
+          //   atStation = false;
           }
 
           // *** Railway crossing ***
@@ -142,6 +219,7 @@ public class Lab1 {
                 || isSensor(s, SensorID.CROSSING_HORI_B)
                 || isSensor(s, SensorID.CROSSING_VERT_A)
                 || isSensor(s, SensorID.CROSSING_VERT_B) )) {
+
             if ((atStation && (isSensor(s, SensorID.CROSSING_HORI_A)
                   || isSensor(s, SensorID.CROSSING_VERT_A)))
                   || (!atStation && (isSensor(s, SensorID.CROSSING_HORI_B)
@@ -154,7 +232,6 @@ public class Lab1 {
               semCrossing.release();
             }
           }
-
 
         }
       } catch (CommandException e) {
