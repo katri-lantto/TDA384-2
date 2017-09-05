@@ -36,16 +36,8 @@ public class Lab1 {
     initSensorIDs();
 
     try {
-      setSwitch(0, tsi.SWITCH_RIGHT); // temporary
-      setSwitch(1, tsi.SWITCH_RIGHT);
-
-      setSwitch(3, tsi.SWITCH_RIGHT);
-
       Train train1 = new Train(1);
       Train train2 = new Train(2);
-
-      semUpperStation.acquire();
-      semLowerStation.acquire();
 
       train1.setSpeed(speed1);
       train2.setSpeed(speed2);
@@ -55,6 +47,8 @@ public class Lab1 {
 
       trainThread1.start();
       trainThread2.start();
+
+      semLowerStation.acquire(); // Since train 2 allready is there
     }
     catch (CommandException e) {
       e.printStackTrace();    // or only e.getMessage() for the error
@@ -124,14 +118,8 @@ public class Lab1 {
         while (true) {
           SensorEvent s = tsi.getSensor(id);
 
-          // if (s.getStatus() == s.ACTIVE) {
-          //   System.out.println("Middle permits: "+semMiddle.availablePermits());
-          //   System.out.println("Lower permits:  "+semLowerStation.availablePermits());
-          //   System.out.println("Upper permits:  "+semUpperStation.availablePermits());
-          // }
-
           // *** West critical region - lower station switch ***
-          if (s.getStatus() == s.ACTIVE //&& atStation
+          if (s.getStatus() == s.ACTIVE
                 && (isSensor(s, SensorID.LOWER_STATION_SWITCH_A)
                 || isSensor(s, SensorID.LOWER_STATION_SWITCH_B))) {
 
@@ -145,9 +133,7 @@ public class Lab1 {
               
               boolean success = semMiddle.tryAcquire();
               if (success) {
-                // semMiddle.acquire();
                 setSwitch(2, tsi.SWITCH_LEFT);
-                // System.out.println("Middle acquired? "+semMiddle.availablePermits());
               } else {
                 setSwitch(2, tsi.SWITCH_RIGHT);
               }
@@ -162,16 +148,11 @@ public class Lab1 {
 
             } else {
               semWestCritical.release();
-              // if (isSensor(s, SensorID.LOWER_STATION_SWITCH_A)) {
-              //   setSwitch(3, tsi.SWITCH_RIGHT);
-              // } else if (isSensor(s, SensorID.LOWER_STATION_SWITCH_B)) {
-              //   setSwitch(3, tsi.SWITCH_LEFT);
-              // }
             }
           }
 
           // *** West critical region - middle west switch ***
-          if (s.getStatus() == s.ACTIVE //&& inMiddle
+          if (s.getStatus() == s.ACTIVE
                 && (isSensor(s, SensorID.MEETING_WEST_A)
                 || isSensor(s, SensorID.MEETING_WEST_B))) {
 
@@ -185,9 +166,7 @@ public class Lab1 {
 
               boolean success = semLowerStation.tryAcquire();
               if (success) {
-                // semLowerStation.acquire();
                 setSwitch(3, tsi.SWITCH_LEFT);
-                // System.out.println("Lower acquired? "+semLowerStation.availablePermits());
               } else {
                 setSwitch(3, tsi.SWITCH_RIGHT);
               }
@@ -199,15 +178,9 @@ public class Lab1 {
               }
 
               inMiddle = false;
+
             } else {
               semWestCritical.release();
-
-              // if (isSensor(s, SensorID.MEETING_WEST_A)) {
-              //   setSwitch(2, tsi.SWITCH_RIGHT);
-              // } else if (isSensor(s, SensorID.MEETING_WEST_B)) {
-              //   setSwitch(2, tsi.SWITCH_LEFT);
-              // }
-
               inMiddle = true;
             }
           }
@@ -227,11 +200,9 @@ public class Lab1 {
 
               boolean success = semUpperStation.tryAcquire();
               if (success) {
-                // semUpperStation.acquire();
-                setSwitch(0, tsi.SWITCH_RIGHT);
-                // System.out.println("Upper acquired? "+semUpperStation.availablePermits());
-              } else {
                 setSwitch(0, tsi.SWITCH_LEFT);
+              } else {
+                setSwitch(0, tsi.SWITCH_RIGHT);
               }
 
               if (isSensor(s, SensorID.MEETING_EAST_A)) {
@@ -241,21 +212,15 @@ public class Lab1 {
               }
 
               inMiddle = false;
+
             } else {
               semEastCritical.release();
-
-              // if (isSensor(s, SensorID.MEETING_EAST_A)) {
-              //   setSwitch(1, tsi.SWITCH_LEFT);
-              // } else if (isSensor(s, SensorID.MEETING_EAST_B)) {
-              //   setSwitch(1, tsi.SWITCH_RIGHT);
-              // }
-              
               inMiddle = true;
             }
           }
 
           // *** East critical region - upper station switch ***
-          if (s.getStatus() == s.ACTIVE //&& atStation
+          if (s.getStatus() == s.ACTIVE
                 && (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
                 || isSensor(s, SensorID.UPPER_STATION_SWITCH_B))) {
 
@@ -269,9 +234,7 @@ public class Lab1 {
               
               boolean success = semMiddle.tryAcquire();
               if (success) {
-                // semMiddle.acquire();
                 setSwitch(1, tsi.SWITCH_RIGHT);
-                // System.out.println("Middle acquired? "+semMiddle.availablePermits());
               } else {
                 setSwitch(1, tsi.SWITCH_LEFT);
               }
@@ -286,11 +249,6 @@ public class Lab1 {
 
             } else {
               semEastCritical.release();
-              // if (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)) {
-              //   setSwitch(0, tsi.SWITCH_LEFT);
-              // } else if (isSensor(s, SensorID.UPPER_STATION_SWITCH_B)) {
-              //   setSwitch(0, tsi.SWITCH_RIGHT);
-              // }
             }
           }
 
@@ -306,14 +264,6 @@ public class Lab1 {
             setSpeed(0);
             Thread.sleep(1000 + (20 * Math.abs(previousSpeed)));
             setSpeed(-previousSpeed);
-
-          // } else if (s.getStatus() == s.ACTIVE
-          //       && (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
-          //       || isSensor(s, SensorID.UPPER_STATION_SWITCH_B)
-          //       || isSensor(s, SensorID.LOWER_STATION_SWITCH_A)
-          //       || isSensor(s, SensorID.LOWER_STATION_SWITCH_B))
-          //       && atStation) {
-          //   atStation = false;
           }
 
           // *** Railway crossing ***
