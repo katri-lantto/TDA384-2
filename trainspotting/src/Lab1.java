@@ -131,18 +131,11 @@ public class Lab1 {
               if (semLowerStation.availablePermits() == 0)
                 semLowerStation.release();
               
-              boolean success = semMiddle.tryAcquire();
-              if (success) {
-                setSwitch(2, tsi.SWITCH_LEFT);
-              } else {
-                setSwitch(2, tsi.SWITCH_RIGHT);
-              }
+              setSwitch(2, semMiddle.tryAcquire() ?
+                tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
 
-              if (isSensor(s, SensorID.LOWER_STATION_SWITCH_A)) {
-                setSwitch(3, tsi.SWITCH_LEFT);
-              } else if (isSensor(s, SensorID.LOWER_STATION_SWITCH_B)) {
-                setSwitch(3, tsi.SWITCH_RIGHT);
-              }
+              setSwitch(3, isSensor(s, SensorID.LOWER_STATION_SWITCH_A) ?
+                tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
 
               atStation = false;
 
@@ -164,18 +157,11 @@ public class Lab1 {
               if (semMiddle.availablePermits() == 0)
                 semMiddle.release();
 
-              boolean success = semLowerStation.tryAcquire();
-              if (success) {
-                setSwitch(3, tsi.SWITCH_LEFT);
-              } else {
-                setSwitch(3, tsi.SWITCH_RIGHT);
-              }
+              setSwitch(3, semLowerStation.tryAcquire() ?
+                tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
 
-              if (isSensor(s, SensorID.MEETING_WEST_A)) {
-                setSwitch(2, tsi.SWITCH_LEFT);
-              } else if (isSensor(s, SensorID.MEETING_WEST_B)) {
-                setSwitch(2, tsi.SWITCH_RIGHT);
-              }
+              setSwitch(2, isSensor(s, SensorID.MEETING_WEST_A) ?
+                tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
 
               inMiddle = false;
 
@@ -198,18 +184,11 @@ public class Lab1 {
               if (semMiddle.availablePermits() == 0)
                 semMiddle.release();
 
-              boolean success = semUpperStation.tryAcquire();
-              if (success) {
-                setSwitch(0, tsi.SWITCH_LEFT);
-              } else {
-                setSwitch(0, tsi.SWITCH_RIGHT);
-              }
+              setSwitch(0, semUpperStation.tryAcquire() ?
+                tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
 
-              if (isSensor(s, SensorID.MEETING_EAST_A)) {
-                setSwitch(1, tsi.SWITCH_RIGHT);
-              } else if (isSensor(s, SensorID.MEETING_EAST_B)) {
-                setSwitch(1, tsi.SWITCH_LEFT);
-              }
+              setSwitch(1, isSensor(s, SensorID.MEETING_EAST_A) ?
+                tsi.SWITCH_RIGHT : tsi.SWITCH_LEFT);
 
               inMiddle = false;
 
@@ -232,18 +211,11 @@ public class Lab1 {
               if (semUpperStation.availablePermits() == 0)
                 semUpperStation.release();
               
-              boolean success = semMiddle.tryAcquire();
-              if (success) {
-                setSwitch(1, tsi.SWITCH_RIGHT);
-              } else {
-                setSwitch(1, tsi.SWITCH_LEFT);
-              }
+              setSwitch(1, semMiddle.tryAcquire() ?
+                tsi.SWITCH_RIGHT : tsi.SWITCH_LEFT);
 
-              if (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)) {
-                setSwitch(0, tsi.SWITCH_RIGHT);
-              } else if (isSensor(s, SensorID.UPPER_STATION_SWITCH_B)) {
-                setSwitch(0, tsi.SWITCH_LEFT);
-              }
+              setSwitch(0, isSensor(s, SensorID.UPPER_STATION_SWITCH_A) ?
+                tsi.SWITCH_RIGHT : tsi.SWITCH_LEFT);
 
               atStation = false;
 
