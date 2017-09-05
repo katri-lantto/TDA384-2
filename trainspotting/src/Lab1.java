@@ -30,7 +30,7 @@ public class Lab1 {
 
   public Lab1(Integer speed1, Integer speed2) {
     try {
-      setSwitch(0, tsi.SWITCH_RIGHT);
+      // setSwitch(0, tsi.SWITCH_RIGHT);
       setSwitch(1, tsi.SWITCH_RIGHT);
 
       // tsi.setSpeed(1,speed1);
@@ -39,7 +39,7 @@ public class Lab1 {
       Train train1 = new Train(1);
       Train train2 = new Train(2);
 
-      train1.setSpeed(speed1);
+      // train1.setSpeed(speed1);
       train2.setSpeed(speed2);
 
       Thread trainThread1 = new Thread(train1);
@@ -69,9 +69,11 @@ public class Lab1 {
   class Train implements Runnable {
     private int id;
     private int speed;
+    private boolean atStation;
 
     public Train (int id) {
       this.id = id;
+      atStation = true;
     }
 
     public void setSpeed(int speed) throws CommandException {
@@ -85,12 +87,21 @@ public class Lab1 {
         while (true) {
           SensorEvent s = tsi.getSensor(id);
 
-          if ((isSensor(s, 0) || isSensor(s, 1)) && speed != 0) {
-            // int previousSpeed = speed;
-            // setSpeed(0);
-            // Thread.sleep(1000);
-            // setSpeed(-previousSpeed);
+          // *** Stopping at stations ***
+          if ((isSensor(s, 0) || isSensor(s, 1) ||
+                isSensor(s, 14) || isSensor(s, 15)) && !atStation) {
+            atStation = true;
+            int previousSpeed = speed;
+            setSpeed(0);
+            Thread.sleep(1000 + (20 * Math.abs(previousSpeed)));
+            setSpeed(-previousSpeed);
+
+          } else if ((isSensor(s, 2) || isSensor(s, 3)
+                || isSensor(s, 12) || isSensor(s, 13)) && atStation) {
+            atStation = false;
           }
+
+          
         }
       } catch (CommandException e) {
         e.printStackTrace();
