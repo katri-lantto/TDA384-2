@@ -103,41 +103,47 @@ public class Lab1 {
 
     public Train (int id) {
       this.id = id;
-      atStation = true;
-      inMiddle = false;
+      this.atStation = true;
+      this.inMiddle = false;
     }
 
     public void setSpeed(int speed) throws CommandException {
       this.speed = speed;
-      tsi.setSpeed(id,speed);
+      tsi.setSpeed(this.id, this.speed);
+    }
+
+    private void criticalSemaphoreAcquirement(Semaphore semToAcquire, Semaphore semToRelease)
+        throws InterruptedException, CommandException {
+      int previousSpeed = this.speed;
+      setSpeed(0);
+      semToAcquire.acquire();
+      setSpeed(previousSpeed);
+      if (semToRelease.availablePermits() == 0) {
+        semToRelease.release();
+      }
     }
 
     public void run() {
       try {
 
         while (true) {
-          SensorEvent s = tsi.getSensor(id);
+          SensorEvent s = tsi.getSensor(this.id);
 
           // *** West critical region - lower station switch ***
           if (s.getStatus() == s.ACTIVE
                 && (isSensor(s, SensorID.LOWER_STATION_SWITCH_A)
                 || isSensor(s, SensorID.LOWER_STATION_SWITCH_B))) {
 
-            if (atStation) {
-              int previousSpeed = speed;
-              setSpeed(0);
-              semWestCritical.acquire();
-              setSpeed(previousSpeed);
-              if (semLowerStation.availablePermits() == 0)
-                semLowerStation.release();
-              
+            if (this.atStation) {
+              this.criticalSemaphoreAcquirement(semWestCritical, semLowerStation);
+
               setSwitch(2, semMiddle.tryAcquire() ?
                 tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
 
               setSwitch(3, isSensor(s, SensorID.LOWER_STATION_SWITCH_A) ?
                 tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
 
-              atStation = false;
+              this.atStation = false;
 
             } else {
               semWestCritical.release();
@@ -149,13 +155,8 @@ public class Lab1 {
                 && (isSensor(s, SensorID.MEETING_WEST_A)
                 || isSensor(s, SensorID.MEETING_WEST_B))) {
 
-            if (inMiddle) {
-              int previousSpeed = speed;
-              setSpeed(0);
-              semWestCritical.acquire();
-              setSpeed(previousSpeed);
-              if (semMiddle.availablePermits() == 0)
-                semMiddle.release();
+            if (this.inMiddle) {
+              this.criticalSemaphoreAcquirement(semWestCritical, semMiddle);
 
               setSwitch(3, semLowerStation.tryAcquire() ?
                 tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
@@ -163,11 +164,11 @@ public class Lab1 {
               setSwitch(2, isSensor(s, SensorID.MEETING_WEST_A) ?
                 tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
 
-              inMiddle = false;
+              this.inMiddle = false;
 
             } else {
               semWestCritical.release();
-              inMiddle = true;
+              this.inMiddle = true;
             }
           }
 
@@ -176,13 +177,8 @@ public class Lab1 {
                 && (isSensor(s, SensorID.MEETING_EAST_A)
                 || isSensor(s, SensorID.MEETING_EAST_B))) {
 
-            if (inMiddle) {
-              int previousSpeed = speed;
-              setSpeed(0);
-              semEastCritical.acquire();
-              setSpeed(previousSpeed);
-              if (semMiddle.availablePermits() == 0)
-                semMiddle.release();
+            if (this.inMiddle) {
+              this.criticalSemaphoreAcquirement(semEastCritical, semMiddle);
 
               setSwitch(0, semUpperStation.tryAcquire() ?
                 tsi.SWITCH_LEFT : tsi.SWITCH_RIGHT);
@@ -190,11 +186,11 @@ public class Lab1 {
               setSwitch(1, isSensor(s, SensorID.MEETING_EAST_A) ?
                 tsi.SWITCH_RIGHT : tsi.SWITCH_LEFT);
 
-              inMiddle = false;
+              this.inMiddle = false;
 
             } else {
               semEastCritical.release();
-              inMiddle = true;
+              this.inMiddle = true;
             }
           }
 
@@ -203,21 +199,16 @@ public class Lab1 {
                 && (isSensor(s, SensorID.UPPER_STATION_SWITCH_A)
                 || isSensor(s, SensorID.UPPER_STATION_SWITCH_B))) {
 
-            if (atStation) {
-              int previousSpeed = speed;
-              setSpeed(0);
-              semEastCritical.acquire();
-              setSpeed(previousSpeed);
-              if (semUpperStation.availablePermits() == 0)
-                semUpperStation.release();
-              
+            if (this.atStation) {
+              this.criticalSemaphoreAcquirement(semEastCritical, semUpperStation);
+
               setSwitch(1, semMiddle.tryAcquire() ?
                 tsi.SWITCH_RIGHT : tsi.SWITCH_LEFT);
 
               setSwitch(0, isSensor(s, SensorID.UPPER_STATION_SWITCH_A) ?
                 tsi.SWITCH_RIGHT : tsi.SWITCH_LEFT);
 
-              atStation = false;
+              this.atStation = false;
 
             } else {
               semEastCritical.release();
@@ -231,7 +222,7 @@ public class Lab1 {
                 || isSensor(s, SensorID.LOWER_STATION_HALT_A)
                 || isSensor(s, SensorID.LOWER_STATION_HALT_B))
                 && !atStation) {
-            atStation = true;
+            this.atStation = true;
             int previousSpeed = speed;
             setSpeed(0);
             Thread.sleep(1000 + (20 * Math.abs(previousSpeed)));
