@@ -1,0 +1,59 @@
+
+-[ TDA384 - Lab 1 - Documentation ]-
+
+    Robin Lilius-Lundmark (CID: lurobin)
+    Andreas Carlsson (CID: andrc)
+
+
+
+-- 1 High-level description --
+
+The goal for this lab was to create a solution where the trains could run forever without colliding. We were told to use semaphores to solve the problem. A semaphore can be seen as some kind of token. When one process holds the semaphore the other one(s) has to wait until the semaphore are released.
+
+In our solution we used sensors before each critical section in the map to tell when a train was about to enter. Before being allowed to enter a critical section, the train would need to obtain the semaphore for that section. Using this system, we made sure that there would always be at most one train in the critical section at each given moment.
+
+The choice of critical sections and sensors are discussed in more detail below. Another thing to consider in the solution was the stopping distance for the trains. When setting the speed to 0 we had to wait a given time (which we found out by testing) before we was absolutely sure that the train was completely still.
+
+
+
+-- 2 Detailed description --
+
+First of all, we decided we needed to keep track of all positions of switches and sensors on the map, without awkwardly needing to change these positions everywhere in the code every time we change the map. A small system of saving these positions and easily obtaining them has therefore been set in place. In retrospect, it really helped us to easily move around sensors when trying out optimal positions.
+
+The trains are, as directed in the assignment, implemented with help of a Train class, which implements Runnable and runs in a Thread for each train object. In the Train class, except for the necessary run()-method, we also have a way of setting the speed of the train. We chose this implementation so that we can save the speed as we are setting it, giving every train the possibility to check their own speed individually.
+
+In the run()-method, the important bulk of our program happens. In general terms, we have thought about it as follows. Every time a train passes a sensor, a SensorEvent is passed to the train, and we then have different chunks of code that runs, depending on which sensors have been activated. The main areas of interest are: when a train is suppose to stop at a station; when a train should wait at the railway crossing; and when a train are about to enter one of the two critical regions (where there is only one track), either from the station sides, or from the middle section.
+
+We have six semaphores to help us with this: two for the critical regions, one for the railway crossing, one for each station default track and one for the middle section default track. Every time a train is about to enter a critical section, we wait for the semaphore of this section to be available, and then make sure the two switches on either side of the section are set in the right direction. This means that we also need to check if the following default track (either at a station or in the middle section) is available too, which is why we have semaphores for this. An exception to this is the railway crossing, where we only need to check the crossing semaphore.
+
+It became apparent that we needed to check which direction a train was going when reaching a sensor, since the behaviour differed largely depending on this direction. Since both trains start at positive speed but runs at opposite directions, we cannot check the speed for each train to know its direction. We therefore introduced simple private boolean variables to keep track of if a train is coming into the section, or leaving it; switching these boolean values every time the train passes the section. We realize that this may be a bit "ugly" but on the other hand, it seemed the simplest solution by far, without involving global variables and such.
+
+
+- 2.1 Placement of Sensors -
+
+The placement of sensors were done with respect to the where collisions could occur and the maximum braking distance for the trains at their maximum speed. We wanted to place the sensors as late as possible without having to risk a collision. 
+
+We used a total of 16 sensors. First off, we placed sensors before the stations for the trains to be able to stop before derailing. Four sensors were used for this purpose, one for each track leading into a station. The exact placements of these were done so the trains would reach the stations and have enough time to stop without derailing.
+
+The next thing we thought about was to place sensors before the train would enter any critical section. In the case of the crossing in the upper part of the map, this required 4 sensors. Two for each track. We now had two critical sections left, the sections where there only were one track on which the trains could run. Before entering any of these sections we had to place a sensor. Since there were two of these sections, and you could reach these sections from two directions we needed a total of 8 sensors for covering all the cases.
+
+
+- 2.2 Choice of critical sections-
+
+There are three critical sections in our solution. Two of them are of course the sections where there are only one track. We have called these west critical and east critical. The last critical section is where the trains are crossing, near the north stations in the map.
+
+One could argue that the two-track sections also are critical since the trains could collide on these if they both chose to take the same track. We decided that this isn’t a critical sections because such a collision can always be avoided by choosing the correct track.
+
+
+- 2.3 Maximum train speed and the reason for it-
+
+The minimal max-speed for the trains were set to be at 15. We began working with this speed when deciding where to place the sensors and how long stopping distance to train would need.
+
+After finishing up our solution we did some extensive testing and found out that the actual maximum speed with our placements of sensors and choice of semaphores were actually 20. In reality we would probably choose a lower max speed to have some margin.
+
+
+- 2.4 How we tested our solution- 
+
+We tested our solution by running the program for a long time with various speeds. To make sure that the trains would be able to stop in time if collision were about to occur, we stress-tested these situations by setting the speed for one of the train to the maximum speed (20) and the speed for the other train to a speed that would cause the trains to collide. This was done for both train 1 and train 2. This made sure that both the sensors were in the correct positions and that we used the semaphores in a correct way.
+
+
