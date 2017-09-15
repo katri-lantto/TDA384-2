@@ -128,11 +128,12 @@ public class Lab1 {
       setSpeed(0);
       semToAcquire.acquire();
       setSpeed(previousSpeed);
-      if (semToRelease.availablePermits() == 0) {
+      // if (semToRelease.availablePermits() == 0) {
         semToRelease.release();
-      }
+        System.out.println("Permits: "+semToRelease.availablePermits());
+      // }
     }
-    
+
     public void run() {
       try {
 

@@ -132,7 +132,7 @@ public class Lab1 {
         semToRelease.release();
       }
     }
-    
+
     public void run() {
       try {
 
