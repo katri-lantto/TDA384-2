@@ -30,19 +30,44 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 handle(St, {join, Channel}) ->
     % TODO: Implement this function
     % {reply, ok, St} ;
-    {reply, {error, not_implemented, "join not implemented"}, St} ;
+    % St#client_st.server ! "Channel",
+    % io:fwrite("My server is ~p\n", [St#client_st.server]),
+    St#client_st.server ! {request, self(), make_ref(), {join, Channel, self()}},
+    receive
+      X -> io:fwrite("Got back: ~p\n", [X])
+    end,
+
+    % {reply, {error, not_implemented, "join not implemented"}, St} ;
+    {reply, ok, St};
 
 % Leave channel
 handle(St, {leave, Channel}) ->
     % TODO: Implement this function
     % {reply, ok, St} ;
-    {reply, {error, not_implemented, "leave not implemented"}, St} ;
+    % {reply, {error, not_implemented, "leave not implemented"}, St} ;
+    {reply, ok, St} ;
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Msg}) ->
     % TODO: Implement this function
     % {reply, ok, St} ;
-    {reply, {error, not_implemented, "message sending not implemented"}, St} ;
+    io:fwrite("message send ~p ~p\n", [Channel, Msg]),
+    % St#client_st.gui ! {message_receive, Channel, St#client_st.nick, Msg},
+    % St#client_st.gui ! {message_receive, Channel, Msg},
+    % server:handle(message_send, Channel, Msg),
+    St#client_st.server ! {request, self(), make_ref(), {message_send, Channel, Msg, self()}},
+
+    % receive
+    %   X -> io:fwrite("Got back in message_send: ~p\n", [X])
+    % end,
+
+
+    % St#client_st.gui ! {message_receive, Channel, Msg},
+    % gen_server:call(St#client_st.gui, {message_receive, Channel, "Hej"++"> "++Msg}),
+
+    % {message_send, Channel, Msg},
+    % {reply, {error, not_implemented, "message sending not implemented"}, St} ;
+    {reply, ok, St};
 
 % ---------------------------------------------------------------------------
 % The cases below do not need to be changed...
@@ -58,6 +83,7 @@ handle(St, {nick, NewNick}) ->
 
 % Incoming message (from channel, to GUI)
 handle(St = #client_st{gui = GUI}, {message_receive, Channel, Nick, Msg}) ->
+    io:fwrite("\nMESSAGE RECIEVED ~p ~p ~p\n\n", [Channel, Nick, Msg]),
     gen_server:call(GUI, {message_receive, Channel, Nick++"> "++Msg}),
     {reply, ok, St} ;
 
