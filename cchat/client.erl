@@ -47,7 +47,7 @@ handle(St, {leave, Channel}) ->
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Msg}) ->
-    St#client_st.server ! {request, self(), make_ref(), {message_send, Channel, Msg, self()}},
+    St#client_st.server ! {request, self(), make_ref(), {message_send, Channel, St#client_st.nick, Msg, self()}},
     {reply, ok, St};
 
 % ---------------------------------------------------------------------------
