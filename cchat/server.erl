@@ -66,7 +66,9 @@ send_to_all(Receivers, Channel, Message) ->
   io:fwrite("Receivers: ~p\n", [Receivers]),
   io:fwrite("Channel: ~p\n", [Channel]),
   io:fwrite("Message: ~p\n", [Message]),
-  [ io:fwrite("Reciver: ~p\n", [X]) || X <- Receivers ].
+  [ io:fwrite("Reciver: ~p\n", [X]) || X <- Receivers ],
+
+  list_to_pid(hd(Receivers)) ! {message_receive, Channel, "Nick", Message}.
 
   % request("n", {message_send, Channel, "String"}),
 
