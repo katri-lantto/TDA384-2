@@ -82,7 +82,7 @@ handle_server(State, Data) ->
       {reply, message_send, State}
   end.
 
-send_to_all(Receivers, Channel, Message) ->
+send_to_all(Receivers, Channel, Nick, Message, Sender) ->
   [ genserver:request(X, {message_receive, Channel, Nick, Message}) || X <- Receivers, X =/= Sender].
 
   % FirstReceiver ! {message_receive, Channel, "Nick", Message}.
