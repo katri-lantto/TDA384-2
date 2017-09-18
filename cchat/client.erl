@@ -31,14 +31,21 @@ handle(St, {join, Channel}) ->
     St#client_st.server ! {request, self(), make_ref(), {join, Channel, self()}},
 
     receive
-      {Result, Ref, Msg} -> io:fwrite("X: ~p\n", [Msg])
+      {Result, Ref, Msg} ->
+        case Msg of
+          join -> {reply, ok, St};
+          error -> {reply, {error, user_already_joined, "User already joined"}, St}
+        end
+    end;
 
-      % X -> io:fwrite("X: ~p\n", [X])
-    end,
+    % receive
+    %   error -> {reply, {error, user_already_joined, "Meddelande"}, State};
+    %   ok -> {reply, join, State}
+    % end,
 
 
     % {reply, {error, user_already_joined, "Arror"}, St};
-    {reply, ok, St};
+
 
 % Leave channel
 handle(St, {leave, Channel}) ->

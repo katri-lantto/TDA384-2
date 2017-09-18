@@ -42,13 +42,12 @@ handle_server(State, Data) ->
       { ChannelExists, ChannelPid } = get_channel(Channel, AllChannels),
       if
         ChannelExists ->
-          ChannelPid ! {request, Sender, make_ref(), {join, Sender}},
-
+          genserver:request(ChannelPid, {join, Sender, self()}),
           receive
-            Y -> io:fwrite("Y: ~p\n", [Y])
-          end,
+            error -> {reply, error, State};
+            ok -> {reply, join, State}
+          end;
 
-          {reply, join, State};
 
         true ->
           Pid = genserver:start(list_to_atom(Channel), #channelState{ name=Channel, users=[ Sender ]}, fun handle_channel/2),
@@ -68,7 +67,7 @@ handle_server(State, Data) ->
     {leave, Channel, Sender} ->
       { _, ChannelPid } = get_channel(Channel, AllChannels),
 
-      ChannelPid ! {request, Sender, make_ref(), {leave, Sender}},
+      genserver:request(ChannelPid, {leave, Sender}),
 
       NewState = State,
 
@@ -117,16 +116,19 @@ user_exists_in_channel(Needle, Haystack) ->
 handle_channel(State, Data) ->
   io:fwrite("\n|| handle_channel:\nState: ~p\nData: ~p\n", [State, Data]),
   case Data of
-    {join, Pid} ->
+    {join, Pid, Server} ->
       IsMember = user_exists_in_channel(Pid, State#channelState.users),
       case IsMember of
         true ->
-          {reply, {error, user_already_joined, "E"}, State};
+          % {reply, {error, user_already_joined, "E"}, State};
+          io:fwrite("Server: ~p\n", [Server]),
+          Server ! error,
+          {reply, join, State};
         false ->
           NewState = State#channelState{users = [ Pid | State#channelState.users ]},
+          Server ! ok,
           {reply, join, NewState}
       end;
-
 
     {leave, Pid} ->
       OldUsers = State#channelState.users,
