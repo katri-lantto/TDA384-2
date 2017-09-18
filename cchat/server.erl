@@ -58,31 +58,32 @@ handle_server(State, Data) ->
       {reply, message_send, State}
   end.
 
-request(ClientName, Msg) ->
-    io:fwrite("ClientName: ~p\nMessage: ~p\n", [ClientName, Msg]),
-    genserver:request(list_to_atom(ClientName), "Msg", 100000).
+% request(ClientName, Msg) ->
+%     io:fwrite("ClientName: ~p\nMessage: ~p\n", [ClientName, Msg]),
+%     genserver:request(list_to_atom(ClientName), "Msg", 100000).
 
-send_to_all(Receivers, Channel) ->
-  io:fwrite("All: ~p\n", [Receivers]),
+send_to_all(Receivers, Channel, Message) ->
+  io:fwrite("Receivers: ~p\n", [Receivers]),
   io:fwrite("Channel: ~p\n", [Channel]),
-  [ io:fwrite("Reciver: ~p\n", [X]) || X <- Receivers ],
+  io:fwrite("Message: ~p\n", [Message]),
+  [ io:fwrite("Reciver: ~p\n", [X]) || X <- Receivers ].
 
-  request("n", {message_send, Channel, "String"}),
+  % request("n", {message_send, Channel, "String"}),
 
-  T = hd(Receivers),
-  N = list_to_pid(T),
-  N ! {message_receive, Channel, "Nick", "Msg"}.
+  % T = hd(Receivers),
+  % N = list_to_pid(T),
+  % N ! {message_receive, Channel, "Nick", "Msg"}.
 
 handle_channel(State, Data) ->
   io:fwrite("\nhandle_channel:\nState: ~p\nData: ~p\n", [State, Data]),
   case Data of
-    {message_send, Msg, Sender} ->
-      io:fwrite("Got Msg: ~p\nFrom: ~p", [Msg, Sender]),
-      send_to_all(State#channelState.users, State#channelState.name),
-
-      {reply, message_receive, State};
     {join, Pid} ->
       NewState = State#channelState{users = [ Pid | State#channelState.users ]},
-      io:fwrite("New state: ~p\n", [NewState]),
-      {reply, join, NewState}
+      io:fwrite("== join in handle_channel. New State: ~p\n", [NewState]),
+      {reply, join, NewState};
+
+    {message_send, Msg, Sender} ->
+      io:fwrite("== message_send in handle_channel: ~p\nFrom: ~p\n", [Msg, Sender]),
+      send_to_all(State#channelState.users, State#channelState.name, Msg),
+      {reply, message_receive, State}
   end.
