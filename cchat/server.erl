@@ -43,16 +43,26 @@ handle_server(State, Data) ->
       if
         ChannelExists ->
           ChannelPid ! {request, Sender, make_ref(), {join, Sender}},
-          NewState = State;
+
+          receive
+            Y -> io:fwrite("Y: ~p\n", [Y])
+          end,
+
+          {reply, join, State};
 
         true ->
           Pid = genserver:start(list_to_atom(Channel), #channelState{ name=Channel, users=[ Sender ]}, fun handle_channel/2),
-          NewState = State#serverState{channels = [ { Channel, Pid } | AllChannels ]}
-      end,
+          NewState = State#serverState{channels = [ { Channel, Pid } | AllChannels ]},
+          {reply, join, NewState}
+      end;
 
+
+      % receive
+      %   Y -> io:fwrite("Y: ~p\n", [Y])
+      % end,
       % Sender ! {receive_message, "#andra", "Meddelandet"},
 
-      {reply, join, NewState};
+
       % {reply, { error, user_already_joined, "User joined :(" }, NewState};
 
     {leave, Channel, Sender} ->
@@ -73,9 +83,6 @@ handle_server(State, Data) ->
   end.
 
 send_to_all(Receivers, Channel, Message) ->
-  io:fwrite("Receivers: ~p\n", [Receivers]),
-  io:fwrite("Channel: ~p\n", [Channel]),
-  io:fwrite("Message: ~p\n", [Message]),
   [ genserver:request(X, {message_receive, Channel, "Nick", Message}) || X <- Receivers ].
 
   % FirstReceiver ! {message_receive, Channel, "Nick", Message}.
@@ -114,12 +121,12 @@ handle_channel(State, Data) ->
       IsMember = user_exists_in_channel(Pid, State#channelState.users),
       case IsMember of
         true ->
-          NewState = State;
+          {reply, {error, user_already_joined, "E"}, State};
         false ->
-          NewState = State#channelState{users = [ Pid | State#channelState.users ]}
-      end,
-      io:fwrite("== join in handle_channel. New State: ~p\n", [NewState]),
-      {reply, join, NewState};
+          NewState = State#channelState{users = [ Pid | State#channelState.users ]},
+          {reply, join, NewState}
+      end;
+
 
     {leave, Pid} ->
       OldUsers = State#channelState.users,
