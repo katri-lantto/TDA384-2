@@ -75,15 +75,15 @@ handle_server(State, Data) ->
 
       {reply, join, NewState};
 
-    {message_send, Channel, Msg, Sender} ->
+    {message_send, Channel, Nick, Msg, Sender} ->
       io:fwrite("message_send:\nChannel: ~p\nMessage: ~p\n", [Channel, Msg]),
       { _, ChannelPid } = get_channel(Channel, AllChannels),
-      ChannelPid ! {request, self(), make_ref(), {message_send, Msg, Sender}},
+      ChannelPid ! {request, self(), make_ref(), {message_send, Nick, Msg, Sender}},
       {reply, message_send, State}
   end.
 
 send_to_all(Receivers, Channel, Message) ->
-  [ genserver:request(X, {message_receive, Channel, "Nick", Message}) || X <- Receivers ].
+  [ genserver:request(X, {message_receive, Channel, Nick, Message}) || X <- Receivers, X =/= Sender].
 
   % FirstReceiver ! {message_receive, Channel, "Nick", Message}.
 
@@ -135,8 +135,8 @@ handle_channel(State, Data) ->
       io:fwrite("== leaving channel: ~p\n", [NewState]),
       {reply, leave, NewState};
 
-    {message_send, Msg, Sender} ->
+    {message_send, Nick, Msg, Sender} ->
       io:fwrite("== message_send in handle_channel: ~p\nFrom: ~p\n", [Msg, Sender]),
-      send_to_all(State#channelState.users, State#channelState.name, Msg),
+      send_to_all(State#channelState.users, State#channelState.name, Nick, Msg, Sender),
       {reply, message_receive, State}
   end.
