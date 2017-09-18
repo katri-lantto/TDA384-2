@@ -33,12 +33,12 @@ get_channel(Needle, Haystack) ->
   end.
 
 handle_server(State, Data) ->
+  io:fwrite("\n|| handle_server:\nState: ~p\nData: ~p\n", [State, Data]),
+
   AllChannels = State#serverState.channels,
 
   case Data of
     {join, Channel, Sender} ->
-      io:fwrite("Sender ~p joins ~p\n", [Sender, Channel]),
-
       { ChannelExists, ChannelPid } = get_channel(Channel, AllChannels),
       if
         ChannelExists ->
@@ -51,16 +51,21 @@ handle_server(State, Data) ->
       end,
       {reply, join, NewState};
 
+    {leave, Channel, Sender} ->
+      { _, ChannelPid } = get_channel(Channel, AllChannels),
+
+      ChannelPid ! {request, Sender, make_ref(), {leave, Sender}},
+
+      NewState = State,
+
+      {reply, join, NewState};
+
     {message_send, Channel, Msg, Sender} ->
       io:fwrite("message_send:\nChannel: ~p\nMessage: ~p\n", [Channel, Msg]),
       { _, ChannelPid } = get_channel(Channel, AllChannels),
       ChannelPid ! {request, self(), make_ref(), {message_send, Msg, Sender}},
       {reply, message_send, State}
   end.
-
-% request(ClientName, Msg) ->
-%     io:fwrite("ClientName: ~p\nMessage: ~p\n", [ClientName, Msg]),
-%     genserver:request(list_to_atom(ClientName), "Msg", 100000).
 
 send_to_all(Receivers, Channel, Message) ->
   io:fwrite("Receivers: ~p\n", [Receivers]),
@@ -76,13 +81,46 @@ send_to_all(Receivers, Channel, Message) ->
   % N = list_to_pid(T),
   % N ! {message_receive, Channel, "Nick", "Msg"}.
 
+list_remove(_, [], Rest) ->
+  Rest;
+list_remove(Needle, Haystack, Rest) ->
+  User = hd(Haystack),
+  if
+    Needle == User ->
+      list_remove(Needle, tl(Haystack), Rest);
+    true ->
+      list_remove(Needle, tl(Haystack), [ hd(Haystack) | Rest ])
+  end.
+
+user_exists_in_channel(Needle, []) ->
+  false;
+user_exists_in_channel(Needle, Haystack) ->
+  User = hd(Haystack),
+  if
+    Needle == User -> true;
+    true -> user_exists_in_channel(Needle, tl(Haystack))
+  end.
+
 handle_channel(State, Data) ->
-  io:fwrite("\nhandle_channel:\nState: ~p\nData: ~p\n", [State, Data]),
+  io:fwrite("\n|| handle_channel:\nState: ~p\nData: ~p\n", [State, Data]),
   case Data of
     {join, Pid} ->
-      NewState = State#channelState{users = [ Pid | State#channelState.users ]},
+      IsMember = user_exists_in_channel(Pid, State#channelState.users),
+      case IsMember of
+        true ->
+          NewState = State;
+        false ->
+          NewState = State#channelState{users = [ Pid | State#channelState.users ]}
+      end,
       io:fwrite("== join in handle_channel. New State: ~p\n", [NewState]),
       {reply, join, NewState};
+
+    {leave, Pid} ->
+      OldUsers = State#channelState.users,
+      NewUsers = list_remove(Pid, OldUsers, []),
+      NewState = State#channelState{users = NewUsers},
+      io:fwrite("== leaving channel: ~p\n", [NewState]),
+      {reply, leave, NewState};
 
     {message_send, Msg, Sender} ->
       io:fwrite("== message_send in handle_channel: ~p\nFrom: ~p\n", [Msg, Sender]),
