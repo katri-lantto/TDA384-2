@@ -49,7 +49,11 @@ handle_server(State, Data) ->
           Pid = genserver:start(list_to_atom(Channel), #channelState{ name=Channel, users=[ Sender ]}, fun handle_channel/2),
           NewState = State#serverState{channels = [ { Channel, Pid } | AllChannels ]}
       end,
+
+      % Sender ! {receive_message, "#andra", "Meddelandet"},
+
       {reply, join, NewState};
+      % {reply, { error, user_already_joined, "User joined :(" }, NewState};
 
     {leave, Channel, Sender} ->
       { _, ChannelPid } = get_channel(Channel, AllChannels),
@@ -57,6 +61,7 @@ handle_server(State, Data) ->
       ChannelPid ! {request, Sender, make_ref(), {leave, Sender}},
 
       NewState = State,
+
 
       {reply, join, NewState};
 
@@ -71,9 +76,10 @@ send_to_all(Receivers, Channel, Message) ->
   io:fwrite("Receivers: ~p\n", [Receivers]),
   io:fwrite("Channel: ~p\n", [Channel]),
   io:fwrite("Message: ~p\n", [Message]),
-  [ io:fwrite("Reciver: ~p\n", [X]) || X <- Receivers ],
+  [ genserver:request(X, {message_receive, Channel, "Nick", Message}) || X <- Receivers ].
 
-  list_to_pid(hd(Receivers)) ! {message_receive, Channel, "Nick", Message}.
+  % FirstReceiver ! {message_receive, Channel, "Nick", Message}.
+
 
   % request("n", {message_send, Channel, "String"}),
 

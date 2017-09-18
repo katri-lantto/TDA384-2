@@ -29,6 +29,15 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 % Join channel
 handle(St, {join, Channel}) ->
     St#client_st.server ! {request, self(), make_ref(), {join, Channel, self()}},
+
+    receive
+      {Result, Ref, Msg} -> io:fwrite("X: ~p\n", [Msg])
+
+      % X -> io:fwrite("X: ~p\n", [X])
+    end,
+
+
+    % {reply, {error, user_already_joined, "Arror"}, St};
     {reply, ok, St};
 
 % Leave channel
@@ -38,15 +47,7 @@ handle(St, {leave, Channel}) ->
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Msg}) ->
-
-    io:fwrite("message send ~p ~p\n", [Channel, Msg]),
-
     St#client_st.server ! {request, self(), make_ref(), {message_send, Channel, Msg, self()}},
-
-    % receive
-    %   {X, Y, Z} -> io:fwrite("Got back in message_send: ~p ~p ~p\n", [X, Y, Z])
-    % end,
-    % {reply, {message_receive, "#f", "Pandy", "Message"}, St};
     {reply, ok, St};
 
 % ---------------------------------------------------------------------------
@@ -63,7 +64,7 @@ handle(St, {nick, NewNick}) ->
 
 % Incoming message (from channel, to GUI)
 handle(St = #client_st{gui = GUI}, {message_receive, Channel, Nick, Msg}) ->
-    io:fwrite("\nMESSAGE RECEIVED ~p ~p ~p\n\n", [Channel, Nick, Msg]),
+    % io:fwrite("\nMESSAGE RECEIVED ~p ~p ~p\n\n", [Channel, Nick, Msg]),
     gen_server:call(GUI, {message_receive, Channel, Nick++"> "++Msg}),
     {reply, ok, St} ;
 
