@@ -13,18 +13,10 @@
 % Start a new server process with the given name
 % Do not change the signature of this function.
 start(ServerAtom) ->
-    io:fwrite("Server Namnet: ~p\n", [ServerAtom]),
     State = #serverState{},
-    Pid = genserver:start(ServerAtom, State, fun handle_channels/2),
+    Pid = genserver:start(ServerAtom, State, fun handle_server/2),
     io:fwrite("Server pid: ~p\n", [Pid]),
-    % Pid ! {request, self(), make_ref(), "här är min data!"},
-
     Pid.
-    % TODO Implement function
-    % - Spawn a new process which waits for a message, handles it, then loops infinitely
-    % - Register this process to ServerAtom
-    % - Return the process ID
-    % not_implemented.
 
 % Stop the server process registered to the given name,
 % together with any other associated processes
@@ -40,7 +32,7 @@ get_channel(Needle, Haystack) ->
     true -> get_channel(Needle, tl(Haystack))
   end.
 
-handle_channels(State, Data) ->
+handle_server(State, Data) ->
   AllChannels = State#serverState.channels,
 
   case Data of
@@ -54,7 +46,7 @@ handle_channels(State, Data) ->
           NewState = State;
 
         true ->
-          Pid = genserver:start(list_to_atom(Channel), #channelState{ name=Channel, users=[ Sender ]}, fun handle_messages/2),
+          Pid = genserver:start(list_to_atom(Channel), #channelState{ name=Channel, users=[ Sender ]}, fun handle_channel/2),
           NewState = State#serverState{channels = [ { Channel, Pid } | AllChannels ]}
       end,
       {reply, join, NewState};
@@ -62,7 +54,7 @@ handle_channels(State, Data) ->
     {message_send, Channel, Msg, Sender} ->
       io:fwrite("message_send:\nChannel: ~p\nMessage: ~p\n", [Channel, Msg]),
       { _, ChannelPid } = get_channel(Channel, AllChannels),
-      ChannelPid ! {request, self(), make_ref(), {message_send, Msg}},
+      ChannelPid ! {request, self(), make_ref(), {message_send, Msg, Sender}},
       {reply, message_send, State}
   end.
 
@@ -74,17 +66,18 @@ send_to_all(Receivers, Channel) ->
   io:fwrite("All: ~p\n", [Receivers]),
   io:fwrite("Channel: ~p\n", [Channel]),
   [ io:fwrite("Reciver: ~p\n", [X]) || X <- Receivers ],
-  % [ T = list_to_pid(X) || X <- Receivers ],
+
   request("n", {message_send, Channel, "String"}),
 
   T = hd(Receivers),
   N = list_to_pid(T),
   N ! {message_receive, Channel, "Nick", "Msg"}.
 
-handle_messages(State, Data) ->
-  io:fwrite("\nHANDLE_MESSAGES:\nState: ~p\nData: ~p\n", [State, Data]),
+handle_channel(State, Data) ->
+  io:fwrite("\nhandle_channel:\nState: ~p\nData: ~p\n", [State, Data]),
   case Data of
-    {message_send, Msg} ->
+    {message_send, Msg, Sender} ->
+      io:fwrite("Got Msg: ~p\nFrom: ~p", [Msg, Sender]),
       send_to_all(State#channelState.users, State#channelState.name),
 
       {reply, message_receive, State};

@@ -28,16 +28,7 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 
 % Join channel
 handle(St, {join, Channel}) ->
-    % TODO: Implement this function
-    % {reply, ok, St} ;
-    % St#client_st.server ! "Channel",
-    % io:fwrite("My server is ~p\n", [St#client_st.server]),
     St#client_st.server ! {request, self(), make_ref(), {join, Channel, self()}},
-    receive
-      X -> io:fwrite("Got back: ~p\n", [X])
-    end,
-
-    % {reply, {error, not_implemented, "join not implemented"}, St} ;
     {reply, ok, St};
 
 % Leave channel
@@ -49,24 +40,15 @@ handle(St, {leave, Channel}) ->
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Msg}) ->
-    % TODO: Implement this function
-    % {reply, ok, St} ;
+
     io:fwrite("message send ~p ~p\n", [Channel, Msg]),
-    % St#client_st.gui ! {message_receive, Channel, St#client_st.nick, Msg},
-    % St#client_st.gui ! {message_receive, Channel, Msg},
-    % server:handle(message_send, Channel, Msg),
+
     St#client_st.server ! {request, self(), make_ref(), {message_send, Channel, Msg, self()}},
 
     % receive
-    %   X -> io:fwrite("Got back in message_send: ~p\n", [X])
+    %   {X, Y, Z} -> io:fwrite("Got back in message_send: ~p ~p ~p\n", [X, Y, Z])
     % end,
-
-
-    % St#client_st.gui ! {message_receive, Channel, Msg},
-    % gen_server:call(St#client_st.gui, {message_receive, Channel, "Hej"++"> "++Msg}),
-
-    % {message_send, Channel, Msg},
-    % {reply, {error, not_implemented, "message sending not implemented"}, St} ;
+    % {reply, {message_receive, "#f", "Pandy", "Message"}, St};
     {reply, ok, St};
 
 % ---------------------------------------------------------------------------
@@ -83,7 +65,7 @@ handle(St, {nick, NewNick}) ->
 
 % Incoming message (from channel, to GUI)
 handle(St = #client_st{gui = GUI}, {message_receive, Channel, Nick, Msg}) ->
-    io:fwrite("\nMESSAGE RECIEVED ~p ~p ~p\n\n", [Channel, Nick, Msg]),
+    io:fwrite("\nMESSAGE RECEIVED ~p ~p ~p\n\n", [Channel, Nick, Msg]),
     gen_server:call(GUI, {message_receive, Channel, Nick++"> "++Msg}),
     {reply, ok, St} ;
 
