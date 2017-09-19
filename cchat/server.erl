@@ -65,14 +65,21 @@ handle_server(State, Data) ->
       % {reply, { error, user_already_joined, "User joined :(" }, NewState};
 
     {leave, Channel, Sender} ->
-      { _, ChannelPid } = get_channel(Channel, AllChannels),
+      { ChannelExists, ChannelPid } = get_channel(Channel, AllChannels),
 
-      genserver:request(ChannelPid, {leave, Sender}),
+      if
+        ChannelExists ->
+          io:fwrite("--- Leaving"),
+          ChannelPid ! {request, Sender, make_ref(), {leave, Sender}},
+          NewState = State,
+          {reply, leave, NewState};
 
-      NewState = State,
+        true ->
+          io:fwrite("--- Error!"),
+          {reply, {error, user_not_joined, "User has not joined this channel."}}
+      end;
 
-
-      {reply, join, NewState};
+      % {reply, join, NewState};
 
     {message_send, Channel, Nick, Msg, Sender} ->
       io:fwrite("message_send:\nChannel: ~p\nMessage: ~p\n", [Channel, Msg]),

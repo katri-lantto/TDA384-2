@@ -50,7 +50,18 @@ handle(St, {join, Channel}) ->
 % Leave channel
 handle(St, {leave, Channel}) ->
     St#client_st.server ! {request, self(), make_ref(), {leave, Channel, self()}},
-    {reply, ok, St} ;
+    receive
+        % {Result, Ref, Msg} -> io:fwrite("--- ~p \n\n", [X])
+        {Result, Ref, leave} ->
+            % io:fwrite("X: ~p\n", [Msg]),
+            {reply, ok, St};
+
+        {Result, Ref, {error, Atom, Text}} ->
+            io:fwrite("X: ~p\n", [Atom]),
+            {reply, {error, Atom, Text}, St}
+    end,
+    % {reply, ok, St} ;
+    {reply, {error, user_not_joined, "User has not joined this channel."}, St} ;
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Msg}) ->
@@ -71,7 +82,6 @@ handle(St, {nick, NewNick}) ->
 
 % Incoming message (from channel, to GUI)
 handle(St = #client_st{gui = GUI}, {message_receive, Channel, Nick, Msg}) ->
-    % io:fwrite("\nMESSAGE RECEIVED ~p ~p ~p\n\n", [Channel, Nick, Msg]),
     gen_server:call(GUI, {message_receive, Channel, Nick++"> "++Msg}),
     {reply, ok, St} ;
 
