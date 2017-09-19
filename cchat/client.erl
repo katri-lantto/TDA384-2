@@ -38,30 +38,17 @@ handle(St, {join, Channel}) ->
         end
     end;
 
-    % receive
-    %   error -> {reply, {error, user_already_joined, "Meddelande"}, State};
-    %   ok -> {reply, join, State}
-    % end,
-
-
-    % {reply, {error, user_already_joined, "Arror"}, St};
-
-
 % Leave channel
 handle(St, {leave, Channel}) ->
     St#client_st.server ! {request, self(), make_ref(), {leave, Channel, self()}},
+    
     receive
-        % {Result, Ref, Msg} -> io:fwrite("--- ~p \n\n", [X])
-        {Result, Ref, leave} ->
-            % io:fwrite("X: ~p\n", [Msg]),
-            {reply, ok, St};
-
-        {Result, Ref, {error, Atom, Text}} ->
-            io:fwrite("X: ~p\n", [Atom]),
-            {reply, {error, Atom, Text}, St}
-    end,
-    % {reply, ok, St} ;
-    {reply, {error, user_not_joined, "User has not joined this channel."}, St} ;
+      {Result, Ref, Msg} ->
+        case Msg of
+            leave -> {reply, ok, St};
+            error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
+        end
+    end;
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Msg}) ->

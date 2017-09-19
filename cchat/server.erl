@@ -55,31 +55,20 @@ handle_server(State, Data) ->
           {reply, join, NewState}
       end;
 
-
-      % receive
-      %   Y -> io:fwrite("Y: ~p\n", [Y])
-      % end,
-      % Sender ! {receive_message, "#andra", "Meddelandet"},
-
-
-      % {reply, { error, user_already_joined, "User joined :(" }, NewState};
-
     {leave, Channel, Sender} ->
       { ChannelExists, ChannelPid } = get_channel(Channel, AllChannels),
 
       if
         ChannelExists ->
-          io:fwrite("--- Leaving"),
-          ChannelPid ! {request, Sender, make_ref(), {leave, Sender}},
-          NewState = State,
-          {reply, leave, NewState};
+          genserver:request(ChannelPid, {leave, Sender, self()}),
+          receive
+            error -> {reply, error, State};
+            ok -> {reply, leave, State}
+          end;
 
         true ->
-          io:fwrite("--- Error!"),
-          {reply, {error, user_not_joined, "User has not joined this channel."}}
+          {reply, error, State}
       end;
-
-      % {reply, join, NewState};
 
     {message_send, Channel, Nick, Msg, Sender} ->
       io:fwrite("message_send:\nChannel: ~p\nMessage: ~p\n", [Channel, Msg]),
@@ -88,17 +77,9 @@ handle_server(State, Data) ->
       {reply, message_send, State}
   end.
 
+% --- This may only be moved to where it is needed, since it's just one row?
 send_to_all(Receivers, Channel, Nick, Message, Sender) ->
   [ genserver:request(X, {message_receive, Channel, Nick, Message}) || X <- Receivers, X =/= Sender].
-
-  % FirstReceiver ! {message_receive, Channel, "Nick", Message}.
-
-
-  % request("n", {message_send, Channel, "String"}),
-
-  % T = hd(Receivers),
-  % N = list_to_pid(T),
-  % N ! {message_receive, Channel, "Nick", "Msg"}.
 
 list_remove(_, [], Rest) ->
   Rest;
@@ -127,7 +108,6 @@ handle_channel(State, Data) ->
       IsMember = user_exists_in_channel(Pid, State#channelState.users),
       case IsMember of
         true ->
-          % {reply, {error, user_already_joined, "E"}, State};
           io:fwrite("Server: ~p\n", [Server]),
           Server ! error,
           {reply, join, State};
@@ -137,12 +117,20 @@ handle_channel(State, Data) ->
           {reply, join, NewState}
       end;
 
-    {leave, Pid} ->
-      OldUsers = State#channelState.users,
-      NewUsers = list_remove(Pid, OldUsers, []),
-      NewState = State#channelState{users = NewUsers},
-      io:fwrite("== leaving channel: ~p\n", [NewState]),
-      {reply, leave, NewState};
+    {leave, Pid, Server} ->
+      IsMember = user_exists_in_channel(Pid, State#channelState.users),
+      case IsMember of
+        true ->
+          OldUsers = State#channelState.users,
+          NewUsers = list_remove(Pid, OldUsers, []),
+          NewState = State#channelState{users = NewUsers},
+          io:fwrite("== leaving channel: ~p\n", [NewState]),
+          Server ! ok,
+          {reply, leave, NewState};
+        false ->
+          Server ! error,
+          {reply, error, State}
+      end;
 
     {message_send, Nick, Msg, Sender} ->
       io:fwrite("== message_send in handle_channel: ~p\nFrom: ~p\n", [Msg, Sender]),
