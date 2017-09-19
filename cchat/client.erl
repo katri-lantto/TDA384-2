@@ -43,34 +43,24 @@ handle(St, {leave, Channel}) ->
     St#client_st.server ! {request, self(), make_ref(), {leave, Channel, self()}},
 
     receive
-        % X -> io:fwrite("--- Client, leaving: ~p\n", [X])
       {Result, Ref, Msg} ->
-        io:fwrite("--- Client, leave, msg: ~p\n", [Msg]),
         case Msg of
             leave -> {reply, ok, St};
             error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
         end
     end;
-    % end,
-    % {reply, ok, St};
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Text}) ->
     Nick = St#client_st.nick,
     St#client_st.server ! {request, self(), make_ref(), {message_send, Channel, Nick, Text, self()}},
-    io:fwrite("--- Client, message send, before receive\n"),
     receive
-        % X -> io:fwrite("--- Client, message send: ~p\n", [X])
       {Result, Ref, Msg} ->
-        % io:fwrite("--- Client, message send, msg: ~p\n", [Text])
         case Msg of
             message_send -> {reply, ok, St};
             error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
         end
     end;
-    % end,
-    % {reply, ok, St};
-    % {reply, {error, user_not_joined, "User has not joined that channel"}, St};
 
 % ---------------------------------------------------------------------------
 % The cases below do not need to be changed...

@@ -60,33 +60,28 @@ handle_server(State, Data) ->
       if
         ChannelExists ->
           genserver:request(ChannelPid, {leave, Sender, self()}),
-          io:fwrite("--- Leaving : channel exists\n"),
           receive
-            error -> io:fwrite("--- Leaving : error\n"), {reply, error, State};
-            ok -> io:fwrite("--- Leaving : ok\n"), {reply, leave, State}
+            error -> {reply, error, State};
+            ok -> {reply, leave, State}
           end;
 
         true ->
-          io:fwrite("--- Leaving : channel does not exist\n"),
           {reply, error, State}
       end;
 
     {message_send, Channel, Nick, Msg, Sender} ->
-      io:fwrite("message_send:\nChannel: ~p\nNick: ~p\nMessage: ~p\n", [Channel, Nick, Msg]),
+      % io:fwrite("message_send:\nChannel: ~p\nNick: ~p\nMessage: ~p\n", [Channel, Nick, Msg]),
       { ChannelExists, ChannelPid } = get_channel(Channel, AllChannels),
 
       if
         ChannelExists ->
-          % ChannelPid ! {request, self(), make_ref(), {message_send, Nick, Msg, Sender}},
           genserver:request(ChannelPid, {message_send, Nick, Msg, Sender, self()}),
-          % {reply, message_send, State}
           receive
-            error -> io:fwrite("--- Message : error\n"), {reply, error, State};
-            ok -> io:fwrite("--- Message : ok\n"), {reply, message_send, State}
+            error -> {reply, error, State};
+            ok -> {reply, message_send, State}
           end;
 
         true ->
-          io:fwrite("--- Message : channel does not exist\n"),
           {reply, error, State}
       end
   end.
@@ -157,7 +152,4 @@ handle_channel(State, Data) ->
           Server ! error,
           {reply, error, State}
       end
-      % io:fwrite("== message_send in handle_channel: ~p\nFrom: ~p\n", [Msg, Sender]),
-      % send_to_all(State#channelState.users, State#channelState.name, Nick, Msg, Sender),
-      % {reply, message_send, State}
   end.
