@@ -60,12 +60,11 @@ handle_server(State, Data) ->
               NickExists = get_nick(Nick, State#serverState.nicks),
               if
                 NickExists == true ->
-                  {reply, join, State}
+                  {reply, join, State};
                 true ->
                   NewState = #serverState{nicks = [ Nick | State#serverState.nicks ], channels = State#serverState.channels},
                   {reply, join, NewState}
-              end;
-
+              end
           end;
 
         true ->

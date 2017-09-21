@@ -28,7 +28,7 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 
 % Join channel
 handle(St, {join, Channel}) ->
-    Msg = genserver:request(St#client_st.server, {join, Channel, self()}),
+    Msg = genserver:request(St#client_st.server, {join, Channel, St#client_st.nick, self()}),
 
     case Msg of
       join -> {reply, ok, St};
