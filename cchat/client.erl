@@ -29,9 +29,10 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 % Join channel
 handle(St, {join, Channel}) ->
     St#client_st.server ! {request, self(), make_ref(), {join, Channel, self()}},
+    % genserver:request(St#client_st.server, {join, Channel, self()}),
 
     receive
-      {Result, Ref, Msg} ->
+      {_, _, Msg} ->
         case Msg of
           join -> {reply, ok, St};
           error -> {reply, {error, user_already_joined, "User already joined"}, St}
@@ -43,7 +44,7 @@ handle(St, {leave, Channel}) ->
     St#client_st.server ! {request, self(), make_ref(), {leave, Channel, self()}},
 
     receive
-      {Result, Ref, Msg} ->
+      {_, _, Msg} ->
         case Msg of
             leave -> {reply, ok, St};
             error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
@@ -55,7 +56,7 @@ handle(St, {message_send, Channel, Text}) ->
     Nick = St#client_st.nick,
     St#client_st.server ! {request, self(), make_ref(), {message_send, Channel, Nick, Text, self()}},
     receive
-      {Result, Ref, Msg} ->
+      {_, _, Msg} ->
         case Msg of
             message_send -> {reply, ok, St};
             error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
@@ -72,7 +73,15 @@ handle(St, whoami) ->
 
 % Change nick (no check, local only)
 handle(St, {nick, NewNick}) ->
-    {reply, ok, St#client_st{nick = NewNick}} ;
+    io:fwrite("Changing nick"),
+    St#client_st.server ! {request, self(), make_ref(), {nick, NewNick}},
+    receive
+      {_, _, Msg} ->
+        case Msg of
+          error -> {reply, {error, nick_taken, "Nick already taken"}, St};
+          ok -> {reply, ok, St#client_st{nick = NewNick}}
+        end
+    end;
 
 % Incoming message (from channel, to GUI)
 handle(St = #client_st{gui = GUI}, {message_receive, Channel, Nick, Msg}) ->
@@ -85,5 +94,6 @@ handle(St, quit) ->
     {reply, ok, St} ;
 
 % Catch-all for any unhandled requests
-handle(St, Data) ->
+% handle(St, Data) ->
+handle(St, _) ->
     {reply, {error, not_implemented, "Client does not handle this command"}, St} .

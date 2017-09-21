@@ -7,7 +7,8 @@
 }).
 
 -record(serverState, {
-    channels = []
+    channels = [],
+    nicks = []
 }).
 
 % Start a new server process with the given name
@@ -21,15 +22,25 @@ start(ServerAtom) ->
 % Stop the server process registered to the given name,
 % together with any other associated processes
 stop(ServerAtom) ->
+    genserver:request(ServerAtom, stop),
     genserver:stop(ServerAtom).
 
-get_channel(_, []) ->
-  { false, 0 };
-get_channel(Needle, Haystack) ->
-  { First, Pid } = hd(Haystack),
+  get_channel(_, []) ->
+    { false, 0 };
+  get_channel(Needle, Haystack) ->
+    { First, Pid } = hd(Haystack),
+    if
+      Needle == First -> { true, Pid };
+      true -> get_channel(Needle, tl(Haystack))
+    end.
+
+get_nick(_, []) ->
+  false;
+get_nick(Needle, Haystack) ->
+  Nick = hd(Haystack),
   if
-    Needle == First -> { true, Pid };
-    true -> get_channel(Needle, tl(Haystack))
+    Needle == Nick -> true;
+    true -> get_nick(Needle, tl(Haystack))
   end.
 
 handle_server(State, Data) ->
@@ -50,7 +61,7 @@ handle_server(State, Data) ->
 
         true ->
           Pid = genserver:start(list_to_atom(Channel), #channelState{ name=Channel, users=[ Sender ]}, fun handle_channel/2),
-          NewState = State#serverState{channels = [ { Channel, Pid } | AllChannels ]},
+          NewState = State#serverState{channels = [ { Channel, Pid } | AllChannels ], nicks = State#serverState.nicks},
           {reply, join, NewState}
       end;
 
@@ -83,7 +94,21 @@ handle_server(State, Data) ->
 
         true ->
           {reply, error, State}
-      end
+      end;
+
+    {nick, Nick} ->
+      NickExists = get_nick(Nick, State#serverState.nicks),
+      if
+        NickExists == true ->
+          {reply, error, State};
+        true ->
+          NewState = #serverState{nicks = [ Nick | State#serverState.nicks ], channels = State#serverState.channels},
+          { reply, ok, NewState }
+      end;
+    stop ->
+      AllChannels = State#serverState.channels,
+      [ genserver:stop(list_to_atom(ChannelName)) || { ChannelName, _ } <- AllChannels ],
+      io:fwrite("Stop channels")
   end.
 
 % --- This may only be moved to where it is needed, since it's just one row?
@@ -101,7 +126,7 @@ list_remove(Needle, Haystack, Rest) ->
       list_remove(Needle, tl(Haystack), [ hd(Haystack) | Rest ])
   end.
 
-user_exists_in_channel(Needle, []) ->
+user_exists_in_channel(_, []) ->
   false;
 user_exists_in_channel(Needle, Haystack) ->
   User = hd(Haystack),
