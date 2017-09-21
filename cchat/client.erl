@@ -64,14 +64,10 @@ handle(St, whoami) ->
 
 % Change nick (no check, local only)
 handle(St, {nick, NewNick}) ->
-    io:fwrite("Changing nick"),
-    St#client_st.server ! {request, self(), make_ref(), {nick, NewNick}},
-    receive
-      {_, _, Msg} ->
-        case Msg of
-          error -> {reply, {error, nick_taken, "Nick already taken"}, St};
-          ok -> {reply, ok, St#client_st{nick = NewNick}}
-        end
+    Msg = genserver:request(St#client_st.server, {nick, NewNick}),
+    case Msg of
+      error -> {reply, {error, nick_taken, "Nick already taken"}, St};
+      ok -> {reply, ok, St#client_st{nick = NewNick}}
     end;
 
 % Incoming message (from channel, to GUI)
