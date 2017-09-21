@@ -16,7 +16,6 @@
 start(ServerAtom) ->
     State = #serverState{},
     Pid = genserver:start(ServerAtom, State, fun handle_server/2),
-    io:fwrite("Server created: pid: ~p\n", [Pid]),
     Pid.
 
 % Stop the server process registered to the given name,
@@ -25,39 +24,28 @@ stop(ServerAtom) ->
     genserver:request(ServerAtom, stop),
     genserver:stop(ServerAtom).
 
-  get_channel(_, []) ->
-    { false, 0 };
-  get_channel(Needle, Haystack) ->
-    { First, Pid } = hd(Haystack),
-    if
-      Needle == First -> { true, Pid };
-      true -> get_channel(Needle, tl(Haystack))
-    end.
-
-get_nick(_, []) ->
+list_find(_, []) ->
   false;
-get_nick(Needle, Haystack) ->
+list_find(Needle, Haystack) ->
   Nick = hd(Haystack),
   if
     Needle == Nick -> true;
-    true -> get_nick(Needle, tl(Haystack))
+    true -> list_find(Needle, tl(Haystack))
   end.
 
 handle_server(State, Data) ->
-  io:fwrite("\n|| handle_server:\nState: ~p\nData: ~p\n", [State, Data]),
-
   AllChannels = State#serverState.channels,
 
   case Data of
     {join, Channel, Nick, Sender} ->
-      { ChannelExists, ChannelPid } = get_channel(Channel, AllChannels),
+      ChannelExists = list_find(Channel, AllChannels),
       if
         ChannelExists ->
-          genserver:request(ChannelPid, {join, Sender, self()}),
+          genserver:request(list_to_atom(Channel), {join, Sender, self()}),
           receive
             error -> {reply, error, State};
             ok ->
-              NickExists = get_nick(Nick, State#serverState.nicks),
+              NickExists = list_find(Nick, State#serverState.nicks),
               if
                 NickExists == true ->
                   {reply, join, State};
@@ -68,13 +56,13 @@ handle_server(State, Data) ->
           end;
 
         true ->
-          Pid = genserver:start(list_to_atom(Channel), #channelState{ name=Channel, users=[ Sender ]}, fun handle_channel/2),
-          NewState = State#serverState{channels = [ { Channel, Pid } | AllChannels ], nicks = State#serverState.nicks},
+          genserver:start(list_to_atom(Channel), #channelState{ name=Channel, users=[ Sender ]}, fun handle_channel/2),
+          NewState = State#serverState{channels = [ Channel | AllChannels ], nicks = State#serverState.nicks},
           {reply, join, NewState}
       end;
 
     {leave, Channel, Sender} ->
-      { ChannelExists, ChannelPid } = get_channel(Channel, AllChannels),
+      { ChannelExists, ChannelPid } = list_find(Channel, AllChannels),
 
       if
         ChannelExists ->
@@ -89,12 +77,12 @@ handle_server(State, Data) ->
       end;
 
     {message_send, Channel, Nick, Msg, Sender} ->
-      % io:fwrite("message_send:\nChannel: ~p\nNick: ~p\nMessage: ~p\n", [Channel, Nick, Msg]),
-      { ChannelExists, ChannelPid } = get_channel(Channel, AllChannels),
+
+      ChannelExists = list_find(Channel, AllChannels),
 
       if
         ChannelExists ->
-          genserver:request(ChannelPid, {message_send, Nick, Msg, Sender, self()}),
+          genserver:request(list_to_atom(Channel), {message_send, Nick, Msg, Sender, self()}),
           receive
             error -> {reply, error, State};
             ok -> {reply, message_send, State}
@@ -105,7 +93,7 @@ handle_server(State, Data) ->
       end;
 
     {nick, Nick} ->
-      NickExists = get_nick(Nick, State#serverState.nicks),
+      NickExists = list_find(Nick, State#serverState.nicks),
       if
         NickExists == true ->
           {reply, error, State};
@@ -114,16 +102,12 @@ handle_server(State, Data) ->
           { reply, ok, NewState }
       end;
     stop ->
-      AllChannels = State#serverState.channels,
-      [ genserver:stop(list_to_atom(ChannelName)) || { ChannelName, _ } <- AllChannels ],
-      io:fwrite("Stop channels")
+      [ genserver:stop(list_to_atom(Channel)) || Channel <- State#serverState.channels ],
   end.
 
 % --- This may only be moved to where it is needed, since it's just one row?
 send_to_all(Receivers, Channel, Nick, Message, Sender) ->
   spawn(fun() -> [ genserver:request(X, {message_receive, Channel, Nick, Message}) || X <- Receivers, X =/= Sender] end ).
-
-
 
 list_remove(_, [], Rest) ->
   Rest;
@@ -146,13 +130,11 @@ user_exists_in_channel(Needle, Haystack) ->
   end.
 
 handle_channel(State, Data) ->
-  io:fwrite("\n|| handle_channel:\nState: ~p\nData: ~p\n", [State, Data]),
   case Data of
     {join, Sender, Server} ->
       IsMember = user_exists_in_channel(Sender, State#channelState.users),
       case IsMember of
         true ->
-          io:fwrite("Server: ~p\n", [Server]),
           Server ! error,
           {reply, join, State};
         false ->
@@ -168,7 +150,6 @@ handle_channel(State, Data) ->
           OldUsers = State#channelState.users,
           NewUsers = list_remove(Sender, OldUsers, []),
           NewState = State#channelState{users = NewUsers},
-          io:fwrite("== leaving channel: ~p\n", [NewState]),
           Server ! ok,
           {reply, leave, NewState};
         false ->
