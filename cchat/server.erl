@@ -49,14 +49,23 @@ handle_server(State, Data) ->
   AllChannels = State#serverState.channels,
 
   case Data of
-    {join, Channel, Sender} ->
+    {join, Channel, Nick, Sender} ->
       { ChannelExists, ChannelPid } = get_channel(Channel, AllChannels),
       if
         ChannelExists ->
           genserver:request(ChannelPid, {join, Sender, self()}),
           receive
             error -> {reply, error, State};
-            ok -> {reply, join, State}
+            ok ->
+              NickExists = get_nick(Nick, State#serverState.nicks),
+              if
+                NickExists == true ->
+                  {reply, join, State}
+                true ->
+                  NewState = #serverState{nicks = [ Nick | State#serverState.nicks ], channels = State#serverState.channels},
+                  {reply, join, NewState}
+              end;
+
           end;
 
         true ->
