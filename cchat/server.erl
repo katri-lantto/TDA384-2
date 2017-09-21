@@ -14,9 +14,7 @@
 % Start a new server process with the given name
 % Do not change the signature of this function.
 start(ServerAtom) ->
-    State = #serverState{},
-    Pid = genserver:start(ServerAtom, State, fun handle_server/2),
-    Pid.
+    genserver:start(ServerAtom, #serverState{}, fun handle_server/2).
 
 % Stop the server process registered to the given name,
 % together with any other associated processes
@@ -41,14 +39,14 @@ handle_server(State, Data) ->
                 NickExists ->
                   {reply, join, State};
                 true ->
-                  NewState = #serverState{nicks = [ Nick | State#serverState.nicks ], channels = State#serverState.channels},
+                  NewState = State#serverState{nicks = [ Nick | State#serverState.nicks ]},
                   {reply, join, NewState}
               end
           end;
 
         true ->
           genserver:start(list_to_atom(Channel), #channelState{ name=Channel, users=[ Sender ]}, fun handle_channel/2),
-          NewState = State#serverState{channels = [ Channel | AllChannels ], nicks = State#serverState.nicks},
+          NewState = State#serverState{channels = [ Channel | AllChannels ]},
           {reply, join, NewState}
       end;
 
@@ -86,7 +84,7 @@ handle_server(State, Data) ->
         NickExists ->
           {reply, error, State};
         true ->
-          NewState = #serverState{nicks = [ Nick | State#serverState.nicks ], channels = State#serverState.channels},
+          NewState = State#serverState{nicks = [ Nick | State#serverState.nicks ]},
           { reply, ok, NewState }
       end;
     stop ->
