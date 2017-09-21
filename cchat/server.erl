@@ -38,7 +38,7 @@ handle_server(State, Data) ->
             ok ->
               NickExists = list_find(Nick, State#serverState.nicks),
               if
-                NickExists == true ->
+                NickExists ->
                   {reply, join, State};
                 true ->
                   NewState = #serverState{nicks = [ Nick | State#serverState.nicks ], channels = State#serverState.channels},
@@ -83,7 +83,7 @@ handle_server(State, Data) ->
     {nick, Nick} ->
       NickExists = list_find(Nick, State#serverState.nicks),
       if
-        NickExists == true ->
+        NickExists ->
           {reply, error, State};
         true ->
           NewState = #serverState{nicks = [ Nick | State#serverState.nicks ], channels = State#serverState.channels},
@@ -127,7 +127,7 @@ handle_channel(State, Data) ->
         true ->
           spawn(
             fun() ->
-              [ genserver:request(X, {message_receive, State#channelState.name, Nick, Msg}) || X <- State#channelState.users, X =/= Sender]
+              [ genserver:request(Receiver, {message_receive, State#channelState.name, Nick, Msg}) || Receiver <- State#channelState.users, Receiver =/= Sender]
             end
           ),
           Server ! ok,
@@ -137,7 +137,6 @@ handle_channel(State, Data) ->
           {reply, error, State}
       end
   end.
-
 
 list_remove(_, [], Rest) ->
   Rest;
