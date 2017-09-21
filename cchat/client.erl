@@ -28,15 +28,13 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 
 % Join channel
 handle(St, {join, Channel}) ->
-    St#client_st.server ! {request, self(), make_ref(), {join, Channel, self()}},
-    % genserver:request(St#client_st.server, {join, Channel, self()}),
+    % St#client_st.server ! {request, self(), make_ref(), {join, Channel, self()}},
 
-    receive
-      {_, _, Msg} ->
-        case Msg of
-          join -> {reply, ok, St};
-          error -> {reply, {error, user_already_joined, "User already joined"}, St}
-        end
+    Msg = genserver:request(St#client_st.server, {join, Channel, self()}),
+
+    case Msg of
+      join -> {reply, ok, St};
+      error -> {reply, {error, user_already_joined, "User already joined"}, St}
     end;
 
 % Leave channel
@@ -94,6 +92,5 @@ handle(St, quit) ->
     {reply, ok, St} ;
 
 % Catch-all for any unhandled requests
-% handle(St, Data) ->
-handle(St, _) ->
+handle(St, _Data) ->
     {reply, {error, not_implemented, "Client does not handle this command"}, St} .

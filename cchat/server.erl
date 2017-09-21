@@ -113,7 +113,9 @@ handle_server(State, Data) ->
 
 % --- This may only be moved to where it is needed, since it's just one row?
 send_to_all(Receivers, Channel, Nick, Message, Sender) ->
-  [ genserver:request(X, {message_receive, Channel, Nick, Message}) || X <- Receivers, X =/= Sender].
+  spawn(fun() -> [ genserver:request(X, {message_receive, Channel, Nick, Message}) || X <- Receivers, X =/= Sender] end ).
+
+
 
 list_remove(_, [], Rest) ->
   Rest;
