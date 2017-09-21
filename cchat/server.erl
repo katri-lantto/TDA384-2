@@ -30,7 +30,7 @@ handle_server(State, Data) ->
       ChannelExists = lists:member(Channel, AllChannels),
       if
         ChannelExists ->
-          genserver:request(list_to_atom(Channel), {join, Sender, self()}),
+          genserver:request(list_to_atom(Channel), {join, Sender, Nick, self()}),
           receive
             error -> {reply, error, State};
             ok ->
@@ -50,12 +50,12 @@ handle_server(State, Data) ->
           {reply, join, NewState}
       end;
 
-    {leave, Channel, Sender} ->
+    {leave, Channel, Nick, Sender} ->
       ChannelExists = lists:member(Channel, AllChannels),
 
       if
         ChannelExists ->
-          genserver:request(list_to_atom(Channel), {leave, Sender, self()}),
+          genserver:request(list_to_atom(Channel), {leave, Sender, Nick, self()}),
           receive
             error -> {reply, error, State};
             ok -> {reply, leave, State}
@@ -81,28 +81,19 @@ handle_server(State, Data) ->
 
 handle_channel(State, Data) ->
   case Data of
-    {join, NewUser, Server} ->
-      IsMember = lists:member(NewUser, State#channelState.users),
+    {join, NewPid, Nick, Server} ->
+      IsMember = lists:member(NewPid, State#channelState.users),
       case IsMember of
         true ->
           Server ! error,
           {reply, join, State};
         false ->
-          NewState = State#channelState{users = [ NewUser | State#channelState.users ]},
-          % io:fwrite("New user : ~p \n", [NewUser]),
-          % spawn(
-          %   fun() ->
-          %     [ genserver:request(
-          %         Receiver,
-          %         {message_receive, State#channelState.name, pid_to_list(NewUser), "Joined the channel!"}
-          %       ) || Receiver <- State#channelState.users]
-          %   end
-          % ),
+          NewState = State#channelState{users = [ NewPid | State#channelState.users ]},
           Server ! ok,
           {reply, join, NewState}
       end;
 
-    {leave, Sender, Server} ->
+    {leave, Sender, Nick, Server} ->
       IsMember = lists:member(Sender, State#channelState.users),
       case IsMember of
         true ->
