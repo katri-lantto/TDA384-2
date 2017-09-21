@@ -19,7 +19,7 @@ start(ServerAtom) ->
 % Stop the server process registered to the given name,
 % together with any other associated processes
 stop(ServerAtom) ->
-    genserver:request(ServerAtom, stop),
+    % genserver:request(ServerAtom, stop),
     genserver:stop(ServerAtom).
 
 handle_server(State, Data) ->
@@ -93,14 +93,23 @@ handle_server(State, Data) ->
 
 handle_channel(State, Data) ->
   case Data of
-    {join, Sender, Server} ->
-      IsMember = lists:member(Sender, State#channelState.users),
+    {join, NewUser, Server} ->
+      IsMember = lists:member(NewUser, State#channelState.users),
       case IsMember of
         true ->
           Server ! error,
           {reply, join, State};
         false ->
-          NewState = State#channelState{users = [ Sender | State#channelState.users ]},
+          NewState = State#channelState{users = [ NewUser | State#channelState.users ]},
+          % io:fwrite("New user : ~p \n", [NewUser]),
+          % spawn(
+          %   fun() ->
+          %     [ genserver:request(
+          %         Receiver,
+          %         {message_receive, State#channelState.name, pid_to_list(NewUser), "Joined the channel!"}
+          %       ) || Receiver <- State#channelState.users]
+          %   end
+          % ),
           Server ! ok,
           {reply, join, NewState}
       end;
