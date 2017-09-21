@@ -50,12 +50,12 @@ handle_server(State, Data) ->
           {reply, join, NewState}
       end;
 
-    {leave, Channel, Nick, Sender} ->
+    {leave, Channel, Sender} ->
       ChannelExists = lists:member(Channel, AllChannels),
 
       if
         ChannelExists ->
-          genserver:request(list_to_atom(Channel), {leave, Sender, Nick, self()}),
+          genserver:request(list_to_atom(Channel), {leave, Sender, self()}),
           receive
             error -> {reply, error, State};
             ok -> {reply, leave, State}
@@ -93,7 +93,7 @@ handle_channel(State, Data) ->
           {reply, join, NewState}
       end;
 
-    {leave, Sender, Nick, Server} ->
+    {leave, Sender, Server} ->
       IsMember = lists:member(Sender, State#channelState.users),
       case IsMember of
         true ->
