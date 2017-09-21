@@ -87,7 +87,7 @@ handle_server(State, Data) ->
           NewState = State#serverState{nicks = [ Nick | State#serverState.nicks ]},
           { reply, ok, NewState }
       end;
-      
+
     stop ->
       [ genserver:stop(list_to_atom(Channel)) || Channel <- State#serverState.channels ]
   end.

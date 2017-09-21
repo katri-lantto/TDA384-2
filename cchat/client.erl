@@ -31,6 +31,8 @@ handle(St, {join, Channel}) ->
     Msg = (catch genserver:request(St#client_st.server, {join, Channel, St#client_st.nick, self()})),
 
     case Msg of
+      {'EXIT', _} ->
+            {reply, {error, server_not_reached, "Server does not respond"}, St};
       join -> {reply, ok, St};
       error -> {reply, {error, user_already_joined, "User already joined"}, St}
     end;
