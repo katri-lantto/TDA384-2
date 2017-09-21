@@ -125,7 +125,10 @@ handle_channel(State, Data) ->
         true ->
           spawn(
             fun() ->
-              [ genserver:request(Receiver, {message_receive, State#channelState.name, Nick, Msg}) || Receiver <- State#channelState.users, Receiver =/= Sender]
+              [ genserver:request(
+                  Receiver,
+                  {message_receive, State#channelState.name, Nick, Msg}
+                ) || Receiver <- State#channelState.users, Receiver =/= Sender]
             end
           ),
           Server ! ok,
