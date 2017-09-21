@@ -31,27 +31,30 @@ handle(St, {join, Channel}) ->
     Msg = (catch genserver:request(St#client_st.server, {join, Channel, St#client_st.nick, self()})),
 
     case Msg of
-      {'EXIT', _} ->
+        {'EXIT', _} ->
             {reply, {error, server_not_reached, "Server does not respond"}, St};
-      join -> {reply, ok, St};
-      error -> {reply, {error, user_already_joined, "User already joined"}, St}
+        join -> {reply, ok, St};
+        error -> {reply, {error, user_already_joined, "User already joined"}, St}
     end;
 
 % Leave channel
 handle(St, {leave, Channel}) ->
-    Msg = genserver:request(St#client_st.server, {leave, Channel, self()}),
+    Msg = (catch genserver:request(St#client_st.server, {leave, Channel, self()})),
 
     case Msg of
+        {'EXIT', _} ->
+            {reply, {error, server_not_reached, "Server does not respond"}, St};
         leave -> {reply, ok, St};
         error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
     end;
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Text}) ->
-    Nick = St#client_st.nick,
-    Msg = genserver:request(St#client_st.server, {message_send, Channel, Nick, Text, self()}),
+    Msg = (catch genserver:request(St#client_st.server, {message_send, Channel, St#client_st.nick, Text, self()})),
 
     case Msg of
+        {'EXIT', _} ->
+            {reply, {error, server_not_reached, "Server does not respond"}, St};
         message_send -> {reply, ok, St};
         error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
     end;
@@ -66,10 +69,12 @@ handle(St, whoami) ->
 
 % Change nick (no check, local only)
 handle(St, {nick, NewNick}) ->
-    Msg = genserver:request(St#client_st.server, {nick, NewNick}),
+    Msg = (catch genserver:request(St#client_st.server, {nick, NewNick})),
     case Msg of
-      error -> {reply, {error, nick_taken, "Nick already taken"}, St};
-      ok -> {reply, ok, St#client_st{nick = NewNick}}
+        {'EXIT', _} ->
+            {reply, {error, server_not_reached, "Server does not respond"}, St};
+        error -> {reply, {error, nick_taken, "Nick already taken"}, St};
+        ok -> {reply, ok, St#client_st{nick = NewNick}}
     end;
 
 % Incoming message (from channel, to GUI)
