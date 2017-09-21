@@ -65,19 +65,6 @@ handle_server(State, Data) ->
           {reply, error, State}
       end;
 
-    {message_send, Channel, Nick, Msg, Sender} ->
-      ChannelExists = lists:member(Channel, AllChannels),
-      if
-        ChannelExists ->
-          genserver:request(list_to_atom(Channel), {message_send, Nick, Msg, Sender, self()}),
-          receive
-            error -> {reply, error, State};
-            ok -> {reply, message_send, State}
-          end;
-        true ->
-          {reply, error, State}
-      end;
-
     {nick, Nick} ->
       NickExists = lists:member(Nick, State#serverState.nicks),
       if
@@ -129,7 +116,7 @@ handle_channel(State, Data) ->
           {reply, error, State}
       end;
 
-    {message_send, Nick, Msg, Sender, Server} ->
+    {message_send, Nick, Msg, Sender} ->
       IsMember = lists:member(Sender, State#channelState.users),
       case IsMember of
         true ->
@@ -141,10 +128,8 @@ handle_channel(State, Data) ->
                 ) || Receiver <- State#channelState.users, Receiver =/= Sender]
             end
           ),
-          Server ! ok,
           {reply, message_send, State};
         false ->
-          Server ! error,
           {reply, error, State}
       end
   end.

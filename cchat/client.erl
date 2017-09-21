@@ -50,11 +50,11 @@ handle(St, {leave, Channel}) ->
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Text}) ->
-    Msg = (catch genserver:request(St#client_st.server, {message_send, Channel, St#client_st.nick, Text, self()})),
+    Msg = (catch genserver:request(list_to_atom(Channel), {message_send, St#client_st.nick, Text, self()})),
 
     case Msg of
         {'EXIT', _} ->
-            {reply, {error, server_not_reached, "Server does not respond"}, St};
+            {reply, {error, server_not_reached, "Channel does not respond"}, St};
         message_send -> {reply, ok, St};
         error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
     end;
