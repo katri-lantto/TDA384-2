@@ -16,7 +16,7 @@
 start(ServerAtom) ->
     State = #serverState{},
     Pid = genserver:start(ServerAtom, State, fun handle_server/2),
-    io:fwrite("Server pid: ~p\n", [Pid]),
+    io:fwrite("Server created: pid: ~p\n", [Pid]),
     Pid.
 
 % Stop the server process registered to the given name,
