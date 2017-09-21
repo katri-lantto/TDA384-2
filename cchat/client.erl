@@ -28,8 +28,6 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 
 % Join channel
 handle(St, {join, Channel}) ->
-    % St#client_st.server ! {request, self(), make_ref(), {join, Channel, self()}},
-
     Msg = genserver:request(St#client_st.server, {join, Channel, self()}),
 
     case Msg of
@@ -39,26 +37,21 @@ handle(St, {join, Channel}) ->
 
 % Leave channel
 handle(St, {leave, Channel}) ->
-    St#client_st.server ! {request, self(), make_ref(), {leave, Channel, self()}},
+    Msg = genserver:request(St#client_st.server, {leave, Channel, self()}),
 
-    receive
-      {_, _, Msg} ->
-        case Msg of
-            leave -> {reply, ok, St};
-            error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
-        end
+    case Msg of
+        leave -> {reply, ok, St};
+        error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
     end;
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Text}) ->
     Nick = St#client_st.nick,
-    St#client_st.server ! {request, self(), make_ref(), {message_send, Channel, Nick, Text, self()}},
-    receive
-      {_, _, Msg} ->
-        case Msg of
-            message_send -> {reply, ok, St};
-            error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
-        end
+    Msg = genserver:request(St#client_st.server, {message_send, Channel, Nick, Text, self()}),
+
+    case Msg of
+        message_send -> {reply, ok, St};
+        error -> {reply, {error, user_not_joined, "User has not joined that channel"}, St}
     end;
 
 % ---------------------------------------------------------------------------
