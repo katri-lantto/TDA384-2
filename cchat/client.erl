@@ -78,6 +78,7 @@ handle(St = #client_st{gui = GUI}, {message_receive, Channel, Nick, Msg}) ->
 % Quit client via GUI
 handle(St, quit) ->
     % Any cleanup should happen here, but this is optional
+    genserver:request(St#client_st.server, {stop, St#client_st.server}),
     {reply, ok, St} ;
 
 % Catch-all for any unhandled requests

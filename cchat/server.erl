@@ -29,14 +29,14 @@ handle_server(State, Data) ->
 
   case Data of
     {join, Channel, Nick, Sender} ->
-      ChannelExists = list_find(Channel, AllChannels),
+      ChannelExists = lists:member(Channel, AllChannels),
       if
         ChannelExists ->
           genserver:request(list_to_atom(Channel), {join, Sender, self()}),
           receive
             error -> {reply, error, State};
             ok ->
-              NickExists = list_find(Nick, State#serverState.nicks),
+              NickExists = lists:member(Nick, State#serverState.nicks),
               if
                 NickExists ->
                   {reply, join, State};
@@ -53,7 +53,7 @@ handle_server(State, Data) ->
       end;
 
     {leave, Channel, Sender} ->
-      ChannelExists = list_find(Channel, AllChannels),
+      ChannelExists = lists:member(Channel, AllChannels),
 
       if
         ChannelExists ->
@@ -68,7 +68,7 @@ handle_server(State, Data) ->
       end;
 
     {message_send, Channel, Nick, Msg, Sender} ->
-      ChannelExists = list_find(Channel, AllChannels),
+      ChannelExists = lists:member(Channel, AllChannels),
       if
         ChannelExists ->
           genserver:request(list_to_atom(Channel), {message_send, Nick, Msg, Sender, self()}),
@@ -81,7 +81,7 @@ handle_server(State, Data) ->
       end;
 
     {nick, Nick} ->
-      NickExists = list_find(Nick, State#serverState.nicks),
+      NickExists = lists:member(Nick, State#serverState.nicks),
       if
         NickExists ->
           {reply, error, State};
@@ -96,7 +96,7 @@ handle_server(State, Data) ->
 handle_channel(State, Data) ->
   case Data of
     {join, Sender, Server} ->
-      IsMember = list_find(Sender, State#channelState.users),
+      IsMember = lists:member(Sender, State#channelState.users),
       case IsMember of
         true ->
           Server ! error,
@@ -108,11 +108,11 @@ handle_channel(State, Data) ->
       end;
 
     {leave, Sender, Server} ->
-      IsMember = list_find(Sender, State#channelState.users),
+      IsMember = lists:member(Sender, State#channelState.users),
       case IsMember of
         true ->
           OldUsers = State#channelState.users,
-          NewUsers = list_remove(Sender, OldUsers, []),
+          NewUsers = lists:delete(Sender, OldUsers),
           NewState = State#channelState{users = NewUsers},
           Server ! ok,
           {reply, leave, NewState};
@@ -122,7 +122,7 @@ handle_channel(State, Data) ->
       end;
 
     {message_send, Nick, Msg, Sender, Server} ->
-      IsMember = list_find(Sender, State#channelState.users),
+      IsMember = lists:member(Sender, State#channelState.users),
       case IsMember of
         true ->
           spawn(
@@ -136,24 +136,4 @@ handle_channel(State, Data) ->
           Server ! error,
           {reply, error, State}
       end
-  end.
-
-list_remove(_, [], Rest) ->
-  Rest;
-list_remove(Needle, Haystack, Rest) ->
-  Head = hd(Haystack),
-  if
-    Needle == Head ->
-      list_remove(Needle, tl(Haystack), Rest);
-    true ->
-      list_remove(Needle, tl(Haystack), [ hd(Haystack) | Rest ])
-  end.
-
-list_find(_, []) ->
-  false;
-list_find(Needle, Haystack) ->
-  Nick = hd(Haystack),
-  if
-    Needle == Nick -> true;
-    true -> list_find(Needle, tl(Haystack))
   end.
