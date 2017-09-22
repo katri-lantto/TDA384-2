@@ -1,12 +1,12 @@
 -module(test_client).
 -include_lib("eunit/include/eunit.hrl").
 -export([]).
+-compile([nowarn_unused_function]).
+
 -define(SERVER,"server"). % forces students not to hardcode "shire"
 -define(SERVERATOM, list_to_atom(?SERVER)).
 -define(MAX, 100000).
-
 -define(PERF_1_USERS, 50).
-
 -define(PERF_2_USERS, 10).
 -define(PERF_2_CHANS, 100).
 -define(PERF_2_MSGS, 5).
@@ -121,6 +121,17 @@ init(Name) ->
     % putStrLn("server ~p", [Pid]),
     assert("server startup", is_pid(Pid)),
     Pid.
+
+% Call stop function on server. This should stop channels too.
+server_stop() ->
+    server:stop(?SERVERATOM),
+    assert("stopping server", whereis(?SERVERATOM) =:= undefined).
+
+% Kill server. This should leave channels running.
+server_kill() ->
+    exit(whereis(?SERVERATOM), kill),
+    timer:sleep(500), % wait for killing to finish
+    assert("killing server", whereis(?SERVERATOM) =:= undefined).
 
 % Start new GUI and register it as Name
 new_gui(Name) ->
@@ -438,9 +449,7 @@ change_nick_combined_test() ->
 % Joining when no server
 join_no_server_test() ->
     init("join_no_server"),
-
-    server:stop(?SERVERATOM),
-    assert("stopping server", whereis(?SERVERATOM) =:= undefined),
+    server_stop(),
 
     putStrLn("Wait a few seconds for timeout..."),
     {_Pid, _Nick, ClientAtom} = new_client(),
@@ -599,8 +608,7 @@ messages_no_server_test() ->
     {_Pid2, Nick2, ClientAtom2} = new_client_gui(),
     join_channel(ClientAtom2, Channel1),
 
-    server:stop(?SERVERATOM),
-    assert("stopping server", whereis(?SERVERATOM) =:= undefined),
+    server_kill(),
 
     % Client 1 writes to channel
     % Receive from Client 2

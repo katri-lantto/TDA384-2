@@ -2,7 +2,11 @@
 -export([start/3, stop/1, request/2, request/3, update/2]).
 
 % Spawn a process and register it with a given atom
-% Function F should have arity 2
+% - Atom is the atom to register the process to
+% - State is the initial state for the server loop
+% - Function F is the body of the server:
+%   - takes 2 params : state, request message
+%   - returns a tuple: new state, response message
 start(Atom, State, F) ->
   Pid = spawn(fun() -> loop(State, F) end),
   catch(unregister(Atom)),

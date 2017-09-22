@@ -27,10 +27,6 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 %   - NewState is the updated state of the client
 
 % Join channel
-%   Sends a request to join a channel, and handles the possible responses:
-%   - join : Successful joining a channel
-%   - error : User has already joined the channel and cannot join again
-%   - EXIT : Exception thrown when the server does not respond for some reason
 handle(St, {join, Channel}) ->
     Msg = (catch genserver:request(St#client_st.server, {join, Channel, St#client_st.nick, self()})),
 
@@ -42,9 +38,6 @@ handle(St, {join, Channel}) ->
     end;
 
 % Leave channel
-%   Sends a request to leave a channel. All in all, works almost exactly in the
-%   same way as when joining a channel, except for the occasional difference in
-%   error message or request parameters.
 handle(St, {leave, Channel}) ->
     Msg = (catch genserver:request(St#client_st.server, {leave, Channel, self()})),
 
@@ -56,9 +49,6 @@ handle(St, {leave, Channel}) ->
     end;
 
 % Sending message (from GUI, to channel)
-%   Sends a message to a channel directly. As above, works pretty much the same:
-%   either the sending of message is successful, or the user is not a member of
-%   the channel, or there is a problem with the channel not responding.
 handle(St, {message_send, Channel, Text}) ->
     Msg = (catch genserver:request(list_to_atom(Channel), {message_send, St#client_st.nick, Text, self()})),
 
