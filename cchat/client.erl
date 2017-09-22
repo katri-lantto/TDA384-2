@@ -1,8 +1,10 @@
 -module(client).
 -export([handle/2, initial_state/3]).
 
-% This record defines the structure of the state of a client.
-% Add whatever other fields you need.
+% We chose not to add anything to the client state. Discussed if the client
+% should hold a list of all the channel it's connected to but we figured
+% this would be redundant. The check that the user is connected to a channel
+% which it wish to send a message to is done in the server.
 -record(client_st, {
     gui, % atom of the GUI process
     nick, % nick/username of the client
@@ -89,5 +91,6 @@ handle(St, quit) ->
     {reply, ok, St} ;
 
 % Catch-all for any unhandled requests
+% Did an _Data instead of Data to supress compiler warning.
 handle(St, _Data) ->
     {reply, {error, not_implemented, "Client does not handle this command"}, St} .
