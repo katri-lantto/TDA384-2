@@ -79,7 +79,7 @@ handle_server(State, Data) ->
       end;
 
     % Called when a user leaves the channel.
-    % If the user is in the channel it leaves it, otherwise return an error.
+    % If channel exists, and the user is a member of it, it leaves it, otherwise return an error.
     {leave, Channel, Sender} ->
       ChannelExists = lists:member(Channel, State#serverState.channels),
       if ChannelExists ->
@@ -134,6 +134,7 @@ handle_channel(State, Data) ->
       end;
 
     % Sending a message to all clients connected to the channel.
+    % As above, if a user is not a member of channel, an error is sent.
     {message_send, Nick, Msg, Sender} ->
       IsMember = lists:member(Sender, State#channelState.users),
       case IsMember of
