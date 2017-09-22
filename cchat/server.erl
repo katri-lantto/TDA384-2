@@ -33,18 +33,19 @@ handle_server(State, Data) ->
   % is sent to the server.
   case Data of
     % User wants to join a channel.
+    % Check if the channel already exists. If it does, we send a message
+    % to the channel that we want to add the user to that channel.
     {join, Channel, Nick, Sender} ->
-      % Check if the channel already exists.
       ChannelExists = lists:member(Channel, State#serverState.channels),
       if
         ChannelExists ->
-          genserver:request(list_to_atom(Channel), {join, Sender, self()}),
-          receive
+          Response = (catch(genserver:request(list_to_atom(Channel), {join, Sender}))),
+
+          case Response of
             error -> {reply, error, State};
-            ok ->
+            join ->
               NickExists = lists:member(Nick, State#serverState.nicks),
-              if
-                NickExists ->
+              if NickExists ->
                   {reply, join, State};
                 true ->
                   NewState = State#serverState{nicks = [ Nick | State#serverState.nicks ]},
@@ -59,23 +60,24 @@ handle_server(State, Data) ->
           {reply, join, State#serverState{channels = [ Channel | State#serverState.channels ]}}
       end;
 
-    % Called when a
+    % Called when a user leaves the channel
     {leave, Channel, Sender} ->
       ChannelExists = lists:member(Channel, State#serverState.channels),
-      if
-        ChannelExists ->
-          genserver:request(list_to_atom(Channel), {leave, Sender, self()}),
-          receive
-            error -> {reply, error, State};
-            ok -> {reply, leave, State}
+      if ChannelExists ->
+          Response = (catch(genserver:request(list_to_atom(Channel), {leave, Sender}))),
+
+          case Response of
+            leave -> {reply, leave, State};
+            error -> {reply, error, State}
           end;
         true ->
           {reply, error, State}
       end;
+
+
     {nick, Nick} ->
       NickExists = lists:member(Nick, State#serverState.nicks),
-      if
-        NickExists ->
+      if NickExists ->
           {reply, error, State};
         true ->
           NewState = State#serverState{nicks = [ Nick | State#serverState.nicks ]},
@@ -89,27 +91,20 @@ handle_server(State, Data) ->
 % Handles joins, leaves and message sending.
 handle_channel(State, Data) ->
   case Data of
-    {join, NewPid, Server} ->
+    {join, NewPid} ->
       IsMember = lists:member(NewPid, State#channelState.users),
-      case IsMember of
-        true ->
-          Server ! error,
-          {reply, join, State};
-        false ->
-          NewState = State#channelState{users = [ NewPid | State#channelState.users ]},
-          Server ! ok,
-          {reply, join, NewState}
+      if IsMember ->
+        {reply, error, State};
+      true ->
+        {reply, join, State#channelState{users = [ NewPid | State#channelState.users ]}}
       end;
 
-    {leave, Sender, Server} ->
+    {leave, Sender} ->
       IsMember = lists:member(Sender, State#channelState.users),
-      case IsMember of
-        true ->
+      if IsMember ->
           NewUsers = lists:delete(Sender, State#channelState.users),
-          Server ! ok,
           {reply, leave, State#channelState{users = NewUsers}};
-        false ->
-          Server ! error,
+        true ->
           {reply, error, State}
       end;
 

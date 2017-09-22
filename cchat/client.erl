@@ -28,9 +28,9 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 
 % Join channel
 handle(St, {join, Channel}) ->
-    Msg = (catch genserver:request(St#client_st.server, {join, Channel, St#client_st.nick, self()})),
+    Response = (catch genserver:request(St#client_st.server, {join, Channel, St#client_st.nick, self()})),
 
-    case Msg of
+    case Response of
         {'EXIT', _} ->
             {reply, {error, server_not_reached, "Server does not respond"}, St};
         join -> {reply, ok, St};
@@ -39,9 +39,9 @@ handle(St, {join, Channel}) ->
 
 % Leave channel
 handle(St, {leave, Channel}) ->
-    Msg = (catch genserver:request(St#client_st.server, {leave, Channel, self()})),
+    Response = (catch genserver:request(St#client_st.server, {leave, Channel, self()})),
 
-    case Msg of
+    case Response of
         {'EXIT', _} ->
             {reply, {error, server_not_reached, "Server does not respond"}, St};
         leave -> {reply, ok, St};
@@ -50,9 +50,9 @@ handle(St, {leave, Channel}) ->
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Text}) ->
-    Msg = (catch genserver:request(list_to_atom(Channel), {message_send, St#client_st.nick, Text, self()})),
+    Response = (catch genserver:request(list_to_atom(Channel), {message_send, St#client_st.nick, Text, self()})),
 
-    case Msg of
+    case Response of
         {'EXIT', _} ->
             {reply, {error, server_not_reached, "Channel does not respond"}, St};
         message_send -> {reply, ok, St};
@@ -69,8 +69,8 @@ handle(St, whoami) ->
 
 % Change nick (no check, local only)
 handle(St, {nick, NewNick}) ->
-    Msg = (catch genserver:request(St#client_st.server, {nick, NewNick})),
-    case Msg of
+    Response = (catch genserver:request(St#client_st.server, {nick, NewNick})),
+    case Response of
         {'EXIT', _} ->
             {reply, {error, server_not_reached, "Server does not respond"}, St};
         error -> {reply, {error, nick_taken, "Nick already taken"}, St};
