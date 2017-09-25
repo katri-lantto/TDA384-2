@@ -1,10 +1,8 @@
 -module(client).
 -export([handle/2, initial_state/3]).
 
-% We chose not to add anything to the client state. Discussed if the client
-% should hold a list of all the channel it's connected to but we figured
-% this would be redundant. The check that the user is connected to a channel
-% which it wish to send a message to is done in the server.
+% This record defines the structure of the state of a client.
+% Add whatever other fields you need.
 -record(client_st, {
     gui, % atom of the GUI process
     nick, % nick/username of the client
@@ -30,9 +28,9 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 
 % Join channel
 handle(St, {join, Channel}) ->
-    Response = (catch genserver:request(St#client_st.server, {join, Channel, St#client_st.nick, self()})),
+    Msg = (catch genserver:request(St#client_st.server, {join, Channel, St#client_st.nick, self()})),
 
-    case Response of
+    case Msg of
         {'EXIT', _} ->
             {reply, {error, server_not_reached, "Server does not respond"}, St};
         join -> {reply, ok, St};
@@ -41,9 +39,9 @@ handle(St, {join, Channel}) ->
 
 % Leave channel
 handle(St, {leave, Channel}) ->
-    Response = (catch genserver:request(St#client_st.server, {leave, Channel, self()})),
+    Msg = (catch genserver:request(St#client_st.server, {leave, Channel, St#client_st.nick, self()})),
 
-    case Response of
+    case Msg of
         {'EXIT', _} ->
             {reply, {error, server_not_reached, "Server does not respond"}, St};
         leave -> {reply, ok, St};
@@ -52,9 +50,9 @@ handle(St, {leave, Channel}) ->
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Text}) ->
-    Response = (catch genserver:request(list_to_atom(Channel), {message_send, St#client_st.nick, Text, self()})),
+    Msg = (catch genserver:request(list_to_atom(Channel), {message_send, St#client_st.nick, Text, self()})),
 
-    case Response of
+    case Msg of
         {'EXIT', _} ->
             {reply, {error, server_not_reached, "Channel does not respond"}, St};
         message_send -> {reply, ok, St};
@@ -71,8 +69,8 @@ handle(St, whoami) ->
 
 % Change nick (no check, local only)
 handle(St, {nick, NewNick}) ->
-    Response = (catch genserver:request(St#client_st.server, {nick, NewNick})),
-    case Response of
+    Msg = (catch genserver:request(St#client_st.server, {nick, NewNick})),
+    case Msg of
         {'EXIT', _} ->
             {reply, {error, server_not_reached, "Server does not respond"}, St};
         error -> {reply, {error, nick_taken, "Nick already taken"}, St};
@@ -91,6 +89,5 @@ handle(St, quit) ->
     {reply, ok, St} ;
 
 % Catch-all for any unhandled requests
-% Did an _Data instead of Data to supress compiler warning.
 handle(St, _Data) ->
     {reply, {error, not_implemented, "Client does not handle this command"}, St} .
