@@ -38,6 +38,7 @@ public class ForkJoinSolver extends SequentialSolver {
      */
     public ForkJoinSolver(Maze maze) {
         super(maze);
+
         this.start = maze.start();
         steps = 0;
     }
@@ -55,20 +56,27 @@ public class ForkJoinSolver extends SequentialSolver {
      */
     public ForkJoinSolver(Maze maze, int forkAfter) {
         this(maze);
+
         this.forkAfter = forkAfter;
         initStructures();
     }
 
-    public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited) {
+    public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
+            Map<Integer, Integer> predecessor, Deque<Integer> frontier) {
         this(maze, forkAfter);
+
+        // this.start = start;
+
         this.visited = visited;
+        this.predecessor = predecessor;
+        this.frontier = frontier;
     }        
 
     @Override
     protected void initStructures() {
-        visited = new ConcurrentSkipListSet<>();
-        predecessor = new ConcurrentHashMap<>();
-        frontier = new LinkedBlockingDeque<>();
+        this.visited = new ConcurrentSkipListSet<>();
+        this.predecessor = new ConcurrentHashMap<>();
+        this.frontier = new LinkedBlockingDeque<>();
     }
 
     /**
@@ -93,17 +101,18 @@ public class ForkJoinSolver extends SequentialSolver {
         frontier.push(start);
         while (!frontier.isEmpty()) {
 
-            int current = frontier.pop();
+            if (steps < forkAfter || frontier.size() <= 1) {
 
-            if (maze.hasGoal(current)) {
-                maze.move(player, current);
-                return pathFromTo(start, current);
-            }
+                int current = frontier.pop();
 
-            if (!visited.contains(current)) {
-                // if (steps < forkAfter) {
+                if (maze.hasGoal(current)) {
                     maze.move(player, current);
+                    return pathFromTo(start, current);
+                }
+
+                if (!visited.contains(current)) {
                     visited.add(current);
+                    maze.move(player, current);
                     steps++;
 
                     for (int nb : maze.neighbors(current)) {
@@ -111,14 +120,23 @@ public class ForkJoinSolver extends SequentialSolver {
                         if (!visited.contains(nb))
                             predecessor.put(nb, current);
                     }
+                }
 
-                // } else {
+            } else {
+                // int current = frontier.pop();
+                ForkJoinSolver solver1 = new ForkJoinSolver(maze, forkAfter,
+                    visited, predecessor, frontier);
+                solver1.fork();
 
-                // }
+                ForkJoinSolver solver2 = new ForkJoinSolver(maze, forkAfter,
+                    visited, predecessor, frontier);
+
+                List<Integer> solution2 = solver2.compute();
+                List<Integer> solution1 = solver1.join();
+
+                return (solution1 != null) ? solution1 : solution2;
             }
         }
-
-
 
         return null;
     }
