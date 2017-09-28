@@ -5,9 +5,11 @@ import amazed.maze.Maze;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.Deque;
+import java.util.concurrent.LinkedBlockingDeque;
 
 /**
  * <code>ForkJoinSolver</code> implements a solver for
@@ -19,18 +21,25 @@ import java.util.concurrent.ConcurrentSkipListSet;
  */
 
 
-public class ForkJoinSolver
-    extends SequentialSolver
-{
+public class ForkJoinSolver extends SequentialSolver {
+    /**
+     * The nodes in the maze to be visited next. Using a stack
+     * implements a search that goes depth first..
+     */
+    protected Deque<Integer> frontier;
+
+    private int steps;
+
     /**
      * Creates a solver that searches in <code>maze</code> from the
      * start node to a goal.
      *
      * @param maze   the maze to be searched
      */
-    public ForkJoinSolver(Maze maze)
-    {
+    public ForkJoinSolver(Maze maze) {
         super(maze);
+        this.start = maze.start();
+        steps = 0;
     }
 
     /**
@@ -44,10 +53,22 @@ public class ForkJoinSolver
      *                    <code>forkAfter &lt;= 0</code> the solver never
      *                    forks new tasks
      */
-    public ForkJoinSolver(Maze maze, int forkAfter)
-    {
+    public ForkJoinSolver(Maze maze, int forkAfter) {
         this(maze);
         this.forkAfter = forkAfter;
+        initStructures();
+    }
+
+    public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited) {
+        this(maze, forkAfter);
+        this.visited = visited;
+    }        
+
+    @Override
+    protected void initStructures() {
+        visited = new ConcurrentSkipListSet<>();
+        predecessor = new ConcurrentHashMap<>();
+        frontier = new LinkedBlockingDeque<>();
     }
 
     /**
@@ -62,13 +83,43 @@ public class ForkJoinSolver
      *           be found.
      */
     @Override
-    public List<Integer> compute()
-    {
+    public List<Integer> compute() {
         return parallelDepthFirstSearch();
     }
 
-    private List<Integer> parallelDepthFirstSearch()
-    {
+    private List<Integer> parallelDepthFirstSearch() {
+        
+        int player = maze.newPlayer(start);
+        frontier.push(start);
+        while (!frontier.isEmpty()) {
+
+            int current = frontier.pop();
+
+            if (maze.hasGoal(current)) {
+                maze.move(player, current);
+                return pathFromTo(start, current);
+            }
+
+            if (!visited.contains(current)) {
+                // if (steps < forkAfter) {
+                    maze.move(player, current);
+                    visited.add(current);
+                    steps++;
+
+                    for (int nb : maze.neighbors(current)) {
+                        frontier.push(nb);
+                        if (!visited.contains(nb))
+                            predecessor.put(nb, current);
+                    }
+
+                // } else {
+
+                // }
+            }
+        }
+
+
+
         return null;
     }
 }
