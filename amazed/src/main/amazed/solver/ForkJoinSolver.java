@@ -98,32 +98,18 @@ public class ForkJoinSolver extends SequentialSolver {
     private List<Integer> parallelDepthFirstSearch() {
         
         int player = maze.newPlayer(start);
-        frontier.push(start);
+        if (!visited.contains(start)) {
+            frontier.push(start);
+            System.out.println("Pushed (start): "+start);
+        }
         while (!frontier.isEmpty()) {
 
             if (steps < forkAfter || frontier.size() <= 1) {
 
-                int current = frontier.pop();
-
-                if (maze.hasGoal(current)) {
-                    maze.move(player, current);
-                    return pathFromTo(start, current);
-                }
-
-                if (!visited.contains(current)) {
-                    visited.add(current);
-                    maze.move(player, current);
-                    steps++;
-
-                    for (int nb : maze.neighbors(current)) {
-                        frontier.push(nb);
-                        if (!visited.contains(nb))
-                            predecessor.put(nb, current);
-                    }
-                }
+                List<Integer> result = sequentialStep(player);
+                if (result != null) return result;
 
             } else {
-                // int current = frontier.pop();
                 ForkJoinSolver solver1 = new ForkJoinSolver(maze, forkAfter,
                     visited, predecessor, frontier);
                 solver1.fork();
@@ -135,6 +121,37 @@ public class ForkJoinSolver extends SequentialSolver {
                 List<Integer> solution1 = solver1.join();
 
                 return (solution1 != null) ? solution1 : solution2;
+            }
+        }
+
+        System.out.println("Frontier empty! player: "+player);
+        return null;
+    }
+
+    private List<Integer> sequentialStep(int player) {
+        int current = frontier.pop();
+
+        if (maze.hasGoal(current)) {
+            maze.move(player, current);
+            List<Integer> result = pathFromTo(start, current);
+            System.out.println("- Goal found! "+current+", player: "+player);
+            System.out.println("Result: "+result);
+            frontier.clear();
+            return result;
+            // return result = pathFromTo(start, current);
+        }
+
+        if (!visited.contains(current)) {
+            visited.add(current);
+            maze.move(player, current);
+            steps++;
+
+            for (int nb : maze.neighbors(current)) {
+                frontier.push(nb);
+                if (!visited.contains(nb)) {
+                    predecessor.put(nb, current);
+                    System.out.println("Visited: "+nb+", player: "+player);
+                }
             }
         }
 
