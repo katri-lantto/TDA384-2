@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.Deque;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.NoSuchElementException;
 
 /**
  * <code>ForkJoinSolver</code> implements a solver for
@@ -29,6 +30,7 @@ public class ForkJoinSolver extends SequentialSolver {
     protected Deque<Integer> frontier;
 
     private int steps;
+    private int player;
 
     /**
      * Creates a solver that searches in <code>maze</code> from the
@@ -41,6 +43,7 @@ public class ForkJoinSolver extends SequentialSolver {
 
         this.start = maze.start();
         steps = 0;
+        player = -1;
     }
 
     /**
@@ -65,12 +68,17 @@ public class ForkJoinSolver extends SequentialSolver {
             Map<Integer, Integer> predecessor, Deque<Integer> frontier) {
         this(maze, forkAfter);
 
-        // this.start = start;
-
         this.visited = visited;
         this.predecessor = predecessor;
         this.frontier = frontier;
-    }        
+    }
+
+    public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
+            Map<Integer, Integer> predecessor, Deque<Integer> frontier,
+            int player) {
+        this(maze, forkAfter, visited, predecessor, frontier);
+        this.player = player;
+    }
 
     @Override
     protected void initStructures() {
@@ -97,16 +105,14 @@ public class ForkJoinSolver extends SequentialSolver {
 
     private List<Integer> parallelDepthFirstSearch() {
         
-        int player = maze.newPlayer(start);
-        if (!visited.contains(start)) {
-            frontier.push(start);
-            System.out.println("Pushed (start): "+start);
-        }
+        if (player == -1) player = maze.newPlayer(start);
+        if (!visited.contains(start)) frontier.push(start);
+
         while (!frontier.isEmpty()) {
 
             if (steps < forkAfter || frontier.size() <= 1) {
 
-                List<Integer> result = sequentialStep(player);
+                List<Integer> result = sequentialStep();
                 if (result != null) return result;
 
             } else {
@@ -115,30 +121,31 @@ public class ForkJoinSolver extends SequentialSolver {
                 solver1.fork();
 
                 ForkJoinSolver solver2 = new ForkJoinSolver(maze, forkAfter,
-                    visited, predecessor, frontier);
+                    visited, predecessor, frontier, player);
 
                 List<Integer> solution2 = solver2.compute();
-                List<Integer> solution1 = solver1.join();
+                if (solution2 != null) return solution2; // does this help at all??
 
-                return (solution1 != null) ? solution1 : solution2;
+                List<Integer> solution1 = solver1.join();
+                return solution1;
+
+                // return (solution1 != null) ? solution1 : solution2;
             }
         }
-
-        System.out.println("Frontier empty! player: "+player);
         return null;
     }
 
-    private List<Integer> sequentialStep(int player) {
-        int current = frontier.pop();
+    private List<Integer> sequentialStep() {
+        int current;
+        try {
+            current = frontier.pop();
+        } catch (NoSuchElementException e) {
+            return null;
+        }
 
         if (maze.hasGoal(current)) {
             maze.move(player, current);
-            List<Integer> result = pathFromTo(start, current);
-            System.out.println("- Goal found! "+current+", player: "+player);
-            System.out.println("Result: "+result);
-            frontier.clear();
-            return result;
-            // return result = pathFromTo(start, current);
+            return pathFromTo(start, current);
         }
 
         if (!visited.contains(current)) {
@@ -148,10 +155,8 @@ public class ForkJoinSolver extends SequentialSolver {
 
             for (int nb : maze.neighbors(current)) {
                 frontier.push(nb);
-                if (!visited.contains(nb)) {
+                if (!visited.contains(nb))
                     predecessor.put(nb, current);
-                    System.out.println("Visited: "+nb+", player: "+player);
-                }
             }
         }
 
