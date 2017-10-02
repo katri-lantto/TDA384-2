@@ -32,6 +32,8 @@ public class ForkJoinSolver extends SequentialSolver {
     private int steps;
     private int player;
 
+    private boolean stop;
+
     /**
      * Creates a solver that searches in <code>maze</code> from the
      * start node to a goal.
@@ -42,8 +44,10 @@ public class ForkJoinSolver extends SequentialSolver {
         super(maze);
 
         this.start = maze.start();
+
         steps = 0;
         player = -1;
+        stop = false;
     }
 
     /**
@@ -108,7 +112,7 @@ public class ForkJoinSolver extends SequentialSolver {
         if (player == -1) player = maze.newPlayer(start);
         if (!visited.contains(start)) frontier.push(start);
 
-        while (!frontier.isEmpty()) {
+        while (!frontier.isEmpty() && !stop) {
 
             if (steps < forkAfter || frontier.size() <= 1) {
 
@@ -124,7 +128,10 @@ public class ForkJoinSolver extends SequentialSolver {
                     visited, predecessor, frontier, player);
 
                 List<Integer> solution2 = solver2.compute();
-                if (solution2 != null) return solution2;
+                if (solution2 != null) {
+                    solver1.stop();
+                    return solution2;
+                }
                 // The point with this early return is to avoid waiting
                 // for another thread, when the goal is found.
                 // Not sure how much this helps, though...
@@ -166,5 +173,9 @@ public class ForkJoinSolver extends SequentialSolver {
         }
 
         return null;
+    }
+
+    public void stop() {
+        stop = true;
     }
 }
