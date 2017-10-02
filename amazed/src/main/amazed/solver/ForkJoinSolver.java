@@ -31,7 +31,6 @@ public class ForkJoinSolver extends SequentialSolver {
 
     private int steps;
     private int player;
-    private int playerStart;
 
     private boolean stop;
 
@@ -48,7 +47,6 @@ public class ForkJoinSolver extends SequentialSolver {
 
         steps = 0;
         player = -1;
-        playerStart = start;
         stop = false;
     }
 
@@ -71,19 +69,18 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            Map<Integer, Integer> predecessor, int playerStart) {
+            Map<Integer, Integer> predecessor, Deque<Integer> frontier) {
         this(maze, forkAfter);
-
-        this.playerStart = playerStart;
 
         this.visited = visited;
         this.predecessor = predecessor;
-        // this.frontier = frontier;
+        this.frontier = frontier;
     }
 
     public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            Map<Integer, Integer> predecessor, int playerStart, int player) {
-        this(maze, forkAfter, visited, predecessor, playerStart);
+            Map<Integer, Integer> predecessor, Deque<Integer> frontier,
+            int player) {
+        this(maze, forkAfter, visited, predecessor, frontier);
         this.player = player;
     }
 
@@ -112,8 +109,8 @@ public class ForkJoinSolver extends SequentialSolver {
 
     private List<Integer> parallelDepthFirstSearch() {
         
-        if (player == -1) player = maze.newPlayer(playerStart);
-        if (!visited.contains(playerStart)) frontier.push(playerStart);
+        if (player == -1) player = maze.newPlayer(start);
+        if (!visited.contains(start)) frontier.push(start);
 
         while (!frontier.isEmpty() && !stop) {
 
@@ -123,55 +120,24 @@ public class ForkJoinSolver extends SequentialSolver {
                 if (result != null) return result;
 
             } else {
+                ForkJoinSolver solver1 = new ForkJoinSolver(maze, forkAfter,
+                    visited, predecessor, frontier);
+                solver1.fork();
 
-                int current2 = frontier.pop();
-                while(visited.contains(current2)) {
-                    current2 = frontier.pop();
-                }
                 ForkJoinSolver solver2 = new ForkJoinSolver(maze, forkAfter,
-                    visited, predecessor, current2, player);
-
-                // int frontierLength = frontier.size();
-                ForkJoinSolver[] solvers = new ForkJoinSolver[frontier.size()-1];
-                for(int i = 0; i < solvers.length; i++) {
-                    int current = frontier.pop();
-                    if (!visited.contains(current)) {
-                        solvers[i] = new ForkJoinSolver(maze, forkAfter,
-                            visited, predecessor, current);
-                        solvers[i].fork();
-                    }
-                }
-
-                // ForkJoinSolver solver1 = new ForkJoinSolver(maze, forkAfter,
-                //     visited, predecessor, frontier.pop());
-                // solver1.fork();
+                    visited, predecessor, frontier, player);
 
                 List<Integer> solution2 = solver2.compute();
                 if (solution2 != null) {
-                    for(int i = 0; i < solvers.length; i++) {
-                        if (solvers[i] != null) solvers[i].stop();
-                    }
+                    solver1.stop();
                     return solution2;
                 }
                 // The point with this early return is to avoid waiting
                 // for another thread, when the goal is found.
                 // Not sure how much this helps, though...
 
-                for(int i = 0; i < solvers.length; i++) {
-                    if (solvers[i] != null) {
-                        List<Integer> solution = solvers[i].join();
-                        if (solution != null) {
-                            for(int j = i+1; j < solvers.length; j++) {
-                                if (solvers[j] != null) solvers[j].stop();
-                            }
-                            return solution;
-                        }
-                    }
-                }
-                return null;
-
-                // List<Integer> solution1 = solver1.join();
-                // return solution1;
+                List<Integer> solution1 = solver1.join();
+                return solution1;
 
                 // return (solution1 != null) ? solution1 : solution2;
             }
