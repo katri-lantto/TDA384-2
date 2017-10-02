@@ -124,7 +124,10 @@ public class ForkJoinSolver extends SequentialSolver {
                     visited, predecessor, frontier, player);
 
                 List<Integer> solution2 = solver2.compute();
-                if (solution2 != null) return solution2; // does this help at all??
+                if (solution2 != null) return solution2;
+                // The point with this early return is to avoid waiting
+                // for another thread, when the goal is found.
+                // Not sure how much this helps, though...
 
                 List<Integer> solution1 = solver1.join();
                 return solution1;
@@ -139,6 +142,8 @@ public class ForkJoinSolver extends SequentialSolver {
         int current;
         try {
             current = frontier.pop();
+
+            // This happens when another thread has emptied frontier
         } catch (NoSuchElementException e) {
             return null;
         }
