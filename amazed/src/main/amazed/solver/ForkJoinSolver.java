@@ -127,18 +127,7 @@ public class ForkJoinSolver extends SequentialSolver {
                 if (result != null) return result;
 
             } else {
-                solver1 = new ForkJoinSolver(maze, forkAfter,
-                    visited, predecessor, frontier, this);
-                solver1.fork();
-
-                solver2 = new ForkJoinSolver(maze, forkAfter,
-                    visited, predecessor, frontier, this, player);
-
-                List<Integer> solution2 = solver2.compute();
-                if (solution2 != null) return solution2;
-
-                List<Integer> solution1 = solver1.join();
-                return solution1;
+                return forkOperations();
             }
         }
         return null;
@@ -174,6 +163,21 @@ public class ForkJoinSolver extends SequentialSolver {
         }
 
         return null;
+    }
+
+    private List<Integer> forkOperations() {
+        solver1 = new ForkJoinSolver(maze, forkAfter,
+            visited, predecessor, frontier, this);
+        solver1.fork();
+
+        solver2 = new ForkJoinSolver(maze, forkAfter,
+            visited, predecessor, frontier, this, player);
+
+        List<Integer> solution2 = solver2.compute();
+        if (solution2 != null) return solution2;
+
+        List<Integer> solution1 = solver1.join();
+        return solution1;
     }
 
     public void stop() {
