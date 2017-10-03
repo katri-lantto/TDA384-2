@@ -148,7 +148,10 @@ public class ForkJoinSolver extends SequentialSolver {
 
         if (maze.hasGoal(current)) {
             maze.move(player, current);
-            parent.stop();
+
+            stop = true;
+            if (parent != null) parent.stop();
+            
             return pathFromTo(start, current);
         }
 
