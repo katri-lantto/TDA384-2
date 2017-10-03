@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.Deque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CancellationException;
 
 /**
  * <code>ForkJoinSolver</code> implements a solver for
@@ -33,6 +34,10 @@ public class ForkJoinSolver extends SequentialSolver {
     private int player;
 
     private boolean stop;
+
+    private ForkJoinSolver parent;
+    private ForkJoinSolver solver1;
+    private ForkJoinSolver solver2;
 
     /**
      * Creates a solver that searches in <code>maze</code> from the
@@ -69,9 +74,11 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            Map<Integer, Integer> predecessor, Deque<Integer> frontier) {
+            Map<Integer, Integer> predecessor, Deque<Integer> frontier,
+            ForkJoinSolver parent) {
         this(maze, forkAfter);
 
+        this.parent = parent;
         this.visited = visited;
         this.predecessor = predecessor;
         this.frontier = frontier;
@@ -79,8 +86,8 @@ public class ForkJoinSolver extends SequentialSolver {
 
     public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
             Map<Integer, Integer> predecessor, Deque<Integer> frontier,
-            int player) {
-        this(maze, forkAfter, visited, predecessor, frontier);
+            ForkJoinSolver parent, int player) {
+        this(maze, forkAfter, visited, predecessor, frontier, parent);
         this.player = player;
     }
 
@@ -120,26 +127,18 @@ public class ForkJoinSolver extends SequentialSolver {
                 if (result != null) return result;
 
             } else {
-                ForkJoinSolver solver1 = new ForkJoinSolver(maze, forkAfter,
-                    visited, predecessor, frontier);
+                solver1 = new ForkJoinSolver(maze, forkAfter,
+                    visited, predecessor, frontier, this);
                 solver1.fork();
 
-                ForkJoinSolver solver2 = new ForkJoinSolver(maze, forkAfter,
-                    visited, predecessor, frontier, player);
+                solver2 = new ForkJoinSolver(maze, forkAfter,
+                    visited, predecessor, frontier, this, player);
 
                 List<Integer> solution2 = solver2.compute();
-                if (solution2 != null) {
-                    solver1.stop();
-                    return solution2;
-                }
-                // The point with this early return is to avoid waiting
-                // for another thread, when the goal is found.
-                // Not sure how much this helps, though...
+                if (solution2 != null) return solution2;
 
                 List<Integer> solution1 = solver1.join();
                 return solution1;
-
-                // return (solution1 != null) ? solution1 : solution2;
             }
         }
         return null;
@@ -157,10 +156,12 @@ public class ForkJoinSolver extends SequentialSolver {
 
         if (maze.hasGoal(current)) {
             maze.move(player, current);
+            parent.stop();
             return pathFromTo(start, current);
         }
 
         if (!visited.contains(current)) {
+            System.out.println("Visited: "+current+", player: "+player);
             visited.add(current);
             maze.move(player, current);
             steps++;
@@ -176,6 +177,15 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     public void stop() {
-        stop = true;
+        if (!stop) {
+            stop = true;
+
+            System.out.println("STOP player: "+player);
+
+            try { solver1.stop(); } catch (Exception e) { }
+            try { solver2.stop(); } catch (Exception e) { }
+
+            if (parent != null) parent.stop();
+        }
     }
 }
