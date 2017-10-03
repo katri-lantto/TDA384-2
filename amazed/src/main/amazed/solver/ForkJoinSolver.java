@@ -2,15 +2,16 @@ package amazed.solver;
 
 import amazed.maze.Maze;
 
+import java.lang.NullPointerException;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.Deque;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.CancellationException;
 
 /**
@@ -123,7 +124,7 @@ public class ForkJoinSolver extends SequentialSolver {
 
             if (steps < forkAfter || frontier.size() <= 1) {
 
-                List<Integer> result = sequentialStep();
+                List<Integer> result = sequentialDepthFirstStep();
                 if (result != null) return result;
 
             } else {
@@ -133,12 +134,14 @@ public class ForkJoinSolver extends SequentialSolver {
         return null;
     }
 
-    private List<Integer> sequentialStep() {
+    // Basically the same as SequentialSolver's depthFirstSearch(),
+    // but without the loop
+    private List<Integer> sequentialDepthFirstStep() {
         int current;
         try {
             current = frontier.pop();
 
-            // This happens when another thread has emptied frontier
+            // This only happens when another thread has emptied frontier
         } catch (NoSuchElementException e) {
             return null;
         }
@@ -151,6 +154,7 @@ public class ForkJoinSolver extends SequentialSolver {
 
         if (!visited.contains(current)) {
             System.out.println("Visited: "+current+", player: "+player);
+
             visited.add(current);
             maze.move(player, current);
             steps++;
@@ -180,14 +184,18 @@ public class ForkJoinSolver extends SequentialSolver {
         return solution1;
     }
 
+    // Stops other processes when the goal is found
     public void stop() {
         if (!stop) {
             stop = true;
 
             System.out.println("STOP player: "+player);
 
-            try { solver1.stop(); } catch (Exception e) { }
-            try { solver2.stop(); } catch (Exception e) { }
+            // Catching null pointer exceptions, instead of checking if null
+            // because when doing this concurrently, a check may allready
+            // be outdated when doing the stop() operation
+            try { solver1.stop(); } catch (NullPointerException e) { }
+            try { solver2.stop(); } catch (NullPointerException e) { }
 
             if (parent != null) parent.stop();
         }
