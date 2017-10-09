@@ -8,10 +8,10 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 import java.util.Deque;
+import java.util.ArrayDeque;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.CancellationException;
 
 /**
@@ -74,23 +74,26 @@ public class ForkJoinSolver extends SequentialSolver {
         initStructures();
     }
 
-    public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            Map<Integer, Integer> predecessor, Deque<Integer> frontier,
-            ForkJoinSolver parent, int start) {
-        this(maze, forkAfter);
+    private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
+            Map<Integer, Integer> predecessor, ForkJoinSolver parent) {
 
+        this(maze, forkAfter);
         this.parent = parent;
         this.visited = visited;
         this.predecessor = predecessor;
-        this.frontier = frontier;
-        // this.frontier = new LinkedBlockingDeque<>();
-        // this.frontier.push(start);
     }
 
-    public ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            Map<Integer, Integer> predecessor, Deque<Integer> frontier,
-            ForkJoinSolver parent, int start, int player) {
-        this(maze, forkAfter, visited, predecessor, frontier, parent, start);
+
+    private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
+            Map<Integer, Integer> predecessor, ForkJoinSolver parent, int start) {
+        this(maze, forkAfter, visited, predecessor, parent);
+        this.frontier.push(start);
+    }
+
+    private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
+            Map<Integer, Integer> predecessor, ForkJoinSolver parent, Deque<Integer> frontier, int player) {
+        this(maze, forkAfter, visited, predecessor, parent);
+        this.frontier = frontier;
         this.player = player;
     }
 
@@ -98,7 +101,7 @@ public class ForkJoinSolver extends SequentialSolver {
     protected void initStructures() {
         this.visited = new ConcurrentSkipListSet<>();
         this.predecessor = new ConcurrentHashMap<>();
-        this.frontier = new LinkedBlockingDeque<>();
+        this.frontier = new ArrayDeque<>();
     }
 
     /**
@@ -119,34 +122,29 @@ public class ForkJoinSolver extends SequentialSolver {
 
     private List<Integer> parallelDepthFirstSearch() {
 
-        if (!visited.contains(start)) frontier.push(this.start);
+        if (!visited.contains(start)) {
+          System.out.println("Pushar start");
+          frontier.push(this.start);
+        }
 
 
         if (this.player == -1) player = maze.newPlayer(this.start);
 
         while (!frontier.isEmpty() && !this.stop) {
 
-            if (this.steps < this.forkAfter || frontier.size() <= 1) {
+            if (this.steps < this.forkAfter) {
 
                 List<Integer> result = sequentialDepthFirstStep();
                 if (result != null) return result;
 
             } else {
-              int forsta = this.frontier.pop();
-              int andra = this.frontier.pop();
-              System.out.println(this.player + " -- Första: " + forsta + " . Andra: " + andra);
-              this.frontier.push(forsta);
-              this.frontier.push(andra);
-              System.out.println(this.player + " -- Pushar på igen");
-              // int first = 0;
-              // int second = 0;
-              // try {
-              //   first = this.frontier.pop();
-              //   second = this.frontier.pop();
-              //
-              // } catch(Exception e) {}
-              return forkOperations();
 
+              if (frontier.size() == 1) {
+                return forkOperations();
+              } else {
+                int first = this.frontier.pop();
+                return forkOperations(first);
+              }
             }
         }
         return null;
@@ -191,14 +189,20 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     private List<Integer> forkOperations() {
-
-
         solver1 = new ForkJoinSolver(maze, forkAfter,
-            visited, predecessor, frontier, this, 0);
+            visited, predecessor, this, frontier, player);
+        solver1.fork();
+        List<Integer> solution1 = solver1.join();
+        return solution1;
+    }
+
+    private List<Integer> forkOperations(int first) {
+        solver1 = new ForkJoinSolver(maze, forkAfter,
+            visited, predecessor, this, first);
         solver1.fork();
 
         solver2 = new ForkJoinSolver(maze, forkAfter,
-            visited, predecessor, frontier, this, 0, player);
+            visited, predecessor, this, frontier, player);
 
         List<Integer> solution2 = solver2.compute();
         if (solution2 != null) return solution2;
