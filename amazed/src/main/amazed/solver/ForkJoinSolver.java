@@ -116,13 +116,13 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     private List<Integer> parallelDepthFirstSearch() {
-        
-        if (player == -1) player = maze.newPlayer(start);
-        if (!visited.contains(start)) frontier.push(start);
 
-        while (!frontier.isEmpty() && !stop) {
+        if (this.player == -1) player = maze.newPlayer(this.start);
+        if (!visited.contains(start)) frontier.push(this.start);
 
-            if (steps < forkAfter || frontier.size() <= 1) {
+        while (!frontier.isEmpty() && !this.stop) {
+
+            if (this.steps < this.forkAfter || frontier.size() <= 1) {
 
                 List<Integer> result = sequentialDepthFirstStep();
                 if (result != null) return result;
@@ -147,20 +147,20 @@ public class ForkJoinSolver extends SequentialSolver {
         }
 
         if (maze.hasGoal(current)) {
-            maze.move(player, current);
+            maze.move(this.player, current);
 
-            stop = true;
-            if (parent != null) parent.stop();
-            
-            return pathFromTo(start, current);
+            this.stop = true;
+            if (this.parent != null) this.parent.stop();
+
+            return pathFromTo(this.start, current);
         }
 
         if (!visited.contains(current)) {
             System.out.println("Visited: "+current+", player: "+player);
 
             visited.add(current);
-            maze.move(player, current);
-            steps++;
+            maze.move(this.player, current);
+            this.steps++;
 
             for (int nb : maze.neighbors(current)) {
                 frontier.push(nb);
