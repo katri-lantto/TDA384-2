@@ -7,8 +7,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
-import java.util.Deque;
-import java.util.ArrayDeque;
+// import java.util.Deque;
+// import java.util.ArrayDeque;
+import java.util.Stack;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -29,7 +30,7 @@ public class ForkJoinSolver extends SequentialSolver {
      * The nodes in the maze to be visited next. Using a stack
      * implements a search that goes depth first..
      */
-    protected Deque<Integer> frontier;
+    // protected Deque<Integer> frontier;
 
     private int steps;
     private int player;
@@ -91,7 +92,8 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            Map<Integer, Integer> predecessor, ForkJoinSolver parent, Deque<Integer> frontier, int player) {
+            Map<Integer, Integer> predecessor, ForkJoinSolver parent,
+            Stack<Integer> frontier, int player) {
         this(maze, forkAfter, visited, predecessor, parent);
         this.frontier = frontier;
         this.player = player;
@@ -101,7 +103,8 @@ public class ForkJoinSolver extends SequentialSolver {
     protected void initStructures() {
         this.visited = new ConcurrentSkipListSet<>();
         this.predecessor = new ConcurrentHashMap<>();
-        this.frontier = new ArrayDeque<>();
+        // this.frontier = new ArrayDeque<>();
+        this.frontier = new Stack<>();
     }
 
     /**
@@ -189,14 +192,16 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     private List<Integer> forkOperations() {
-        List<Integer> answer = null;
-        int end = 0;
-
         solver1 = new ForkJoinSolver(maze, forkAfter,
             visited, predecessor, this, frontier, player);
-        solver1.fork();
-        List<Integer> solution1 = solver1.join();
-        return solution1;
+        // solver1.fork();
+        // List<Integer> solution1 = solver1.join();
+        List<Integer> solution1 = solver1.compute();
+        return addPath(solution1, solver1.start);
+
+        // List<Integer> newAnswer = addPath(solution1, solver1.start);
+
+        // return newAnswer;
     }
 
     private List<Integer> forkOperations(int first) {
@@ -208,29 +213,21 @@ public class ForkJoinSolver extends SequentialSolver {
             visited, predecessor, this, frontier, player);
 
         List<Integer> solution2 = solver2.compute();
-        // if (solution2 != null) return solution2;
-        if (solution2 != null) {
-            answer = solution2;
-            end = solver2.start;
-        }
+        if (solution2 != null) return addPath(solution2, solver2.start);
 
         List<Integer> solution1 = solver1.join();
-        // return solution1;
-        if (solution1 != null) {
-            answer = solution1;
-            end = solver1.start;
-        }
+        return addPath(solution1, solver1.start);
+    }
 
-        if (answer != null) {
-            // System.out.println("1. "+answer);
-            answer.remove(0);
-            List<Integer> newAnswer = pathFromTo(start, end);
-            newAnswer.addAll(answer);
-            answer = newAnswer;
-            // System.out.println("2. "+answer);
+    private List<Integer> addPath(List<Integer> oldAnswer, int end) {
+        if (oldAnswer != null) {
+            oldAnswer.remove(0);
+            List<Integer> newAnswer = pathFromTo(this.start, end);
+            newAnswer.addAll(oldAnswer);
+            return newAnswer;
         }
-
-        return answer;
+        
+        return null;
     }
 
     // Stops other processes when the goal is found
