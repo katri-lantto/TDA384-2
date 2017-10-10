@@ -71,7 +71,7 @@ public class ForkJoinSolver extends SequentialSolver {
         this(maze);
 
         this.forkAfter = forkAfter;
-        initStructures();
+        // initStructures();
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
@@ -189,6 +189,9 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     private List<Integer> forkOperations() {
+        List<Integer> answer = null;
+        int end = 0;
+
         solver1 = new ForkJoinSolver(maze, forkAfter,
             visited, predecessor, this, frontier, player);
         solver1.fork();
@@ -205,10 +208,29 @@ public class ForkJoinSolver extends SequentialSolver {
             visited, predecessor, this, frontier, player);
 
         List<Integer> solution2 = solver2.compute();
-        if (solution2 != null) return solution2;
+        // if (solution2 != null) return solution2;
+        if (solution2 != null) {
+            answer = solution2;
+            end = solver2.start;
+        }
 
         List<Integer> solution1 = solver1.join();
-        return solution1;
+        // return solution1;
+        if (solution1 != null) {
+            answer = solution1;
+            end = solver1.start;
+        }
+
+        if (answer != null) {
+            // System.out.println("1. "+answer);
+            answer.remove(0);
+            List<Integer> newAnswer = pathFromTo(start, end);
+            newAnswer.addAll(answer);
+            answer = newAnswer;
+            // System.out.println("2. "+answer);
+        }
+
+        return answer;
     }
 
     // Stops other processes when the goal is found
@@ -216,7 +238,7 @@ public class ForkJoinSolver extends SequentialSolver {
         if (!stop) {
             stop = true;
 
-            System.out.println("STOP player: "+player);
+            // System.out.println("STOP player: "+player);
 
             // Catching null pointer exceptions, instead of checking if null
             // because when doing this concurrently, a check may allready
