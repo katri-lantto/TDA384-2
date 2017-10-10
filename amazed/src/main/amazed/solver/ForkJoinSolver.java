@@ -6,13 +6,10 @@ import java.lang.NullPointerException;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
-import java.util.Deque;
-import java.util.ArrayDeque;
-import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Stack;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.CancellationException;
 
 /**
  * <code>ForkJoinSolver</code> implements a solver for
@@ -25,11 +22,6 @@ import java.util.concurrent.CancellationException;
 
 
 public class ForkJoinSolver extends SequentialSolver {
-    /**
-     * The nodes in the maze to be visited next. Using a stack
-     * implements a search that goes depth first..
-     */
-    protected Deque<Integer> frontier;
 
     private int steps;
     private int player;
@@ -69,33 +61,34 @@ public class ForkJoinSolver extends SequentialSolver {
      */
     public ForkJoinSolver(Maze maze, int forkAfter) {
         this(maze);
-
         this.forkAfter = forkAfter;
-        initStructures();
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            Map<Integer, Integer> predecessor, ForkJoinSolver parent) {
+            ForkJoinSolver parent) {
 
         this(maze, forkAfter);
         this.parent = parent;
         this.visited = visited;
-        this.predecessor = predecessor;
     }
 
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            Map<Integer, Integer> predecessor, ForkJoinSolver parent, int start) {
-        this(maze, forkAfter, visited, predecessor, parent);
+            ForkJoinSolver parent, int start) {
+        this(maze, forkAfter, visited, parent);
+        this.start = start;
         this.frontier.push(start);
 
         System.out.println("Creating new player " + player);
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            Map<Integer, Integer> predecessor, ForkJoinSolver parent, Deque<Integer> frontier, int player) {
-        this(maze, forkAfter, visited, predecessor, parent);
+            ForkJoinSolver parent, int start, Map<Integer, Integer> predecessor,
+            Stack<Integer> frontier, int player) {
+        this(maze, forkAfter, visited, parent);
+        this.start = start;
         this.frontier = frontier;
+        this.predecessor = predecessor;
         this.player = player;
 
         System.out.println("Using player " + player);
@@ -104,8 +97,8 @@ public class ForkJoinSolver extends SequentialSolver {
     @Override
     protected void initStructures() {
         this.visited = new ConcurrentSkipListSet<>();
-        this.predecessor = new ConcurrentHashMap<>();
-        this.frontier = new ArrayDeque<>();
+        this.predecessor = new HashMap<>();
+        this.frontier = new Stack<>();
     }
 
     /**
@@ -144,9 +137,16 @@ public class ForkJoinSolver extends SequentialSolver {
             } else {
 
               if (frontier.size() == 1) {
-                return forkOperations();
+                return singleForkOperation();
+
               } else {
-                int first = this.frontier.pop();
+                int first;
+                do {
+                    if (this.frontier.empty()) return null;
+
+                    first = this.frontier.pop();
+                } while (visited.contains(first));
+
                 return forkOperations(first);
               }
             }
@@ -157,14 +157,9 @@ public class ForkJoinSolver extends SequentialSolver {
     // Basically the same as SequentialSolver's depthFirstSearch(),
     // but without the loop
     private List<Integer> sequentialDepthFirstStep() {
-        int current;
-        try {
-            current = frontier.pop();
+        if (this.frontier.empty()) return null;
 
-            // This only happens when another thread has emptied frontier
-        } catch (NoSuchElementException e) {
-            return null;
-        }
+        int current = frontier.pop();
 
         if (maze.hasGoal(current)) {
             maze.move(this.player, current);
@@ -172,7 +167,8 @@ public class ForkJoinSolver extends SequentialSolver {
             this.stop = true;
             if (this.parent != null) this.parent.stop();
 
-            return pathFromTo(this.start, current);
+            List<Integer> path = pathFromTo(this.start, current);
+            return path;
         }
 
         if (!visited.contains(current)) {
@@ -192,35 +188,44 @@ public class ForkJoinSolver extends SequentialSolver {
         return null;
     }
 
-    private List<Integer> forkOperations() {
+    private List<Integer> singleForkOperation() {
         solver1 = new ForkJoinSolver(maze, forkAfter,
-            visited, predecessor, this, frontier, player);
-        solver1.fork();
-        List<Integer> solution1 = solver1.join();
-        return solution1;
+            visited, this, this.start, predecessor, frontier, player);
+
+        List<Integer> solution1 = solver1.compute();
+        return addPath(solution1, solver1.start);
     }
 
     private List<Integer> forkOperations(int first) {
         solver1 = new ForkJoinSolver(maze, forkAfter,
-            visited, predecessor, this, first);
+            visited, this, first);
         solver1.fork();
 
         solver2 = new ForkJoinSolver(maze, forkAfter,
-            visited, predecessor, this, frontier, player);
+            visited, this, this.start, predecessor, frontier, player);
 
         List<Integer> solution2 = solver2.compute();
-        if (solution2 != null) return solution2;
+        if (solution2 != null) return addPath(solution2, solver2.start);
 
         List<Integer> solution1 = solver1.join();
-        return solution1;
+        return addPath(solution1, solver1.start);
+    }
+
+    private List<Integer> addPath(List<Integer> oldAnswer, int end) {
+        if (oldAnswer != null) {
+            oldAnswer.remove(0);
+            List<Integer> newAnswer = pathFromTo(this.start, end);
+            newAnswer.addAll(oldAnswer);
+            return newAnswer;
+        }
+        
+        return null;
     }
 
     // Stops other processes when the goal is found
     public void stop() {
         if (!stop) {
             stop = true;
-
-            System.out.println("STOP player: "+player);
 
             // Catching null pointer exceptions, instead of checking if null
             // because when doing this concurrently, a check may allready
