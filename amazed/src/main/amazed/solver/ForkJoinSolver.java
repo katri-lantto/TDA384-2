@@ -88,6 +88,8 @@ public class ForkJoinSolver extends SequentialSolver {
             Map<Integer, Integer> predecessor, ForkJoinSolver parent, int start) {
         this(maze, forkAfter, visited, predecessor, parent);
         this.frontier.push(start);
+
+        System.out.println("Creating new player " + player);
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
@@ -95,6 +97,8 @@ public class ForkJoinSolver extends SequentialSolver {
         this(maze, forkAfter, visited, predecessor, parent);
         this.frontier = frontier;
         this.player = player;
+
+        System.out.println("Using player " + player);
     }
 
     @Override
