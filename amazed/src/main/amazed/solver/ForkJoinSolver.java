@@ -172,12 +172,14 @@ public class ForkJoinSolver extends SequentialSolver {
 
         int firstUnvisited = 0;
         do {
-            if (this.frontier.empty()) return null;
+            if (this.frontier.empty() || this.stop) return null;
 
             firstUnvisited = this.frontier.pop();
         } while (visited.contains(firstUnvisited));
 
         while(!this.frontier.isEmpty()) {
+            if (this.stop) return null;
+
             int node = this.frontier.pop();
             if (!this.visited.contains(node)) {
 
