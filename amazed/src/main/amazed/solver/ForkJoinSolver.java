@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * <code>ForkJoinSolver</code> implements a solver for
@@ -27,7 +28,8 @@ public class ForkJoinSolver extends SequentialSolver {
     private int steps;
     private int player;
 
-    private boolean stop;
+    // private boolean stop;
+    private AtomicBoolean stop;
 
     private ForkJoinSolver parent;
 
@@ -47,7 +49,8 @@ public class ForkJoinSolver extends SequentialSolver {
 
         steps = 0;
         player = -1;
-        stop = false;
+        // stop = false;
+        stop = new AtomicBoolean();
     }
 
     /**
@@ -68,25 +71,21 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            ForkJoinSolver parent) {
+            ForkJoinSolver parent, int start, AtomicBoolean stop) {
         this(maze, forkAfter);
         
         this.parent = parent;
         this.visited = visited;
-    }
-
-
-    private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            ForkJoinSolver parent, int start) {
-        this(maze, forkAfter, visited, parent);
 
         this.start = start;
         this.frontier.push(start);
+
+        this.stop = stop;
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            ForkJoinSolver parent, int start, int player) {
-        this(maze, forkAfter, visited, parent, start);
+            ForkJoinSolver parent, int start, AtomicBoolean stop, int player) {
+        this(maze, forkAfter, visited, parent, start, stop);
 
         this.player = player;
     }
@@ -119,7 +118,7 @@ public class ForkJoinSolver extends SequentialSolver {
         if (!visited.contains(start)) frontier.push(this.start);
         if (this.player == -1) player = maze.newPlayer(this.start);
 
-        while (!frontier.isEmpty() && !this.stop) {
+        while (!frontier.isEmpty() && !this.stop.get()) {
 
             if (this.steps < this.forkAfter) {
                 List<Integer> result = sequentialDepthFirstStep();
@@ -143,15 +142,16 @@ public class ForkJoinSolver extends SequentialSolver {
         if (maze.hasGoal(current)) {
             maze.move(this.player, current);
 
-            this.stop = true;
-            if (this.parent != null) this.parent.stop();
+            // this.stop = true;
+            // if (this.parent != null) this.parent.stop();
+            this.stop.set(true);
 
             List<Integer> path = pathFromTo(this.start, current);
             return path;
         }
 
         if (!visited.contains(current)) {
-            System.out.println("Visited: "+current+", player: "+player);
+            // System.out.println("Visited: "+current+", player: "+player);
 
             visited.add(current);
             maze.move(this.player, current);
@@ -172,26 +172,26 @@ public class ForkJoinSolver extends SequentialSolver {
 
         int firstUnvisited = 0;
         do {
-            if (this.frontier.empty() || this.stop) return null;
+            if (this.frontier.empty() || this.stop.get()) return null;
 
             firstUnvisited = this.frontier.pop();
         } while (visited.contains(firstUnvisited));
 
         while(!this.frontier.isEmpty()) {
-            if (this.stop) return null;
+            if (this.stop.get()) return null;
 
             int node = this.frontier.pop();
             if (!this.visited.contains(node)) {
 
                 ForkJoinSolver otherSolver = new ForkJoinSolver(maze, forkAfter,
-                    visited, this, node);
+                    visited, this, node, this.stop);
                 otherSolver.fork();
                 this.solverList.add(otherSolver);
             }
         }
 
         solver = new ForkJoinSolver(maze, forkAfter,
-            visited, this, firstUnvisited, player);
+            visited, this, firstUnvisited, this.stop, player);
 
         List<Integer> solution = solver.compute();
         if (solution != null) return addPath(solution, solver.start);
@@ -216,20 +216,20 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     // Stops other processes when the goal is found
-    public void stop() {
-        if (!stop) {
-            stop = true;
+    // public void stop() {
+    //     if (!stop) {
+    //         stop = true;
 
-            // Catching null pointer exceptions, instead of checking if null
-            // because when doing this concurrently, a check may allready
-            // be outdated when doing the stop() operation
-            try { solver.stop(); } catch (NullPointerException e) { }
+    //         // Catching null pointer exceptions, instead of checking if null
+    //         // because when doing this concurrently, a check may allready
+    //         // be outdated when doing the stop() operation
+    //         try { solver.stop(); } catch (NullPointerException e) { }
 
-            for (ForkJoinSolver otherSolver : this.solverList) {
-                try { otherSolver.stop(); } catch (NullPointerException e) { }
-            }
+    //         for (ForkJoinSolver otherSolver : this.solverList) {
+    //             try { otherSolver.stop(); } catch (NullPointerException e) { }
+    //         }
 
-            if (parent != null) parent.stop();
-        }
-    }
+    //         if (parent != null) parent.stop();
+    //     }
+    // }
 }
