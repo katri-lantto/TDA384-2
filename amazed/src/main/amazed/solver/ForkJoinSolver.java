@@ -131,8 +131,9 @@ public class ForkJoinSolver extends SequentialSolver {
             maze.move(this.player, current);
             this.stop.set(true);
 
-            List<Integer> path = pathFromTo(this.start, current);
-            return path;
+            // List<Integer> path = pathFromTo(this.start, current);
+            // return path;
+            return pathFromTo(this.start, current);
         }
 
         if (!visited.contains(current)) {
