@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -29,8 +30,9 @@ public class ForkJoinSolver extends SequentialSolver {
     private boolean stop;
 
     private ForkJoinSolver parent;
-    private ForkJoinSolver solver1;
-    private ForkJoinSolver solver2;
+
+    private ForkJoinSolver solver;
+    private List<ForkJoinSolver> solverList;
 
     /**
      * Creates a solver that searches in <code>maze</code> from the
@@ -83,12 +85,10 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            ForkJoinSolver parent, int start, Map<Integer, Integer> predecessor,
-            Stack<Integer> frontier, int player) {
+            ForkJoinSolver parent, int start, int player) {
         this(maze, forkAfter, visited, parent);
         this.start = start;
-        this.frontier = frontier;
-        this.predecessor = predecessor;
+        this.frontier.push(start);
         this.player = player;
 
         System.out.println("Using player " + player);
@@ -136,21 +136,26 @@ public class ForkJoinSolver extends SequentialSolver {
 
             } else {
 
-              if (frontier.size() == 1) {
-                return singleForkOperation();
+            //   if (frontier.size() == 1) {
+                return forkOperation();
 
-              } else {
-                int first;
-                do {
-                    if (this.frontier.empty()) return null;
+            //   } else {
+                // int first;
+                // do {
+                //     if (this.frontier.empty()) return null;
+                //
+                //     first = this.frontier.pop();
+                // } while (visited.contains(first));
 
-                    first = this.frontier.pop();
-                } while (visited.contains(first));
+                // return forkOperations(first);
 
-                return forkOperations(first);
-              }
+                // return forkOperations();
+            //   }
             }
         }
+
+        // PlayerPool.getInstance().returnPlayer(this.player);
+
         return null;
     }
 
@@ -188,27 +193,59 @@ public class ForkJoinSolver extends SequentialSolver {
         return null;
     }
 
-    private List<Integer> singleForkOperation() {
-        solver1 = new ForkJoinSolver(maze, forkAfter,
-            visited, this, this.start, predecessor, frontier, player);
+    // private List<Integer> singleForkOperation() {
+    //     solver1 = new ForkJoinSolver(maze, forkAfter,
+    //         visited, this, this.start, predecessor, frontier, player);
+    //
+    //     List<Integer> solution1 = solver1.compute();
+    //     return addPath(solution1, solver1.start);
+    // }
 
-        List<Integer> solution1 = solver1.compute();
-        return addPath(solution1, solver1.start);
-    }
+    private List<Integer> forkOperation() {
+        this.solverList = new ArrayList<>();
 
-    private List<Integer> forkOperations(int first) {
-        solver1 = new ForkJoinSolver(maze, forkAfter,
-            visited, this, first);
-        solver1.fork();
+        // int firstUnvisited = 0;
+        // do {
+        //     int node = this.frontier.pop();
+        //     if (!this.visited.contains(node)) {
+        //         firstUnvisited = node;
+        //         break;
+        //     }
+        // } while(!this.frontier.isEmpty());
 
-        solver2 = new ForkJoinSolver(maze, forkAfter,
-            visited, this, this.start, predecessor, frontier, player);
+        int firstUnvisited = 0;
+        do {
+            if (this.frontier.empty()) return null;
 
-        List<Integer> solution2 = solver2.compute();
-        if (solution2 != null) return addPath(solution2, solver2.start);
+            firstUnvisited = this.frontier.pop();
+        } while (visited.contains(firstUnvisited));
 
-        List<Integer> solution1 = solver1.join();
-        return addPath(solution1, solver1.start);
+        while(!this.frontier.isEmpty()) {
+            int node = this.frontier.pop();
+            if (!this.visited.contains(node)) {
+                ForkJoinSolver otherSolver = new ForkJoinSolver(maze, forkAfter,
+                    visited, this, node);
+                otherSolver.fork();
+                this.solverList.add(otherSolver);
+
+            }
+        }
+
+        solver = new ForkJoinSolver(maze, forkAfter,
+            visited, this, firstUnvisited, player);
+
+        List<Integer> solution = solver.compute();
+        if (solution != null) return addPath(solution, solver.start);
+
+        for (ForkJoinSolver otherSolver : this.solverList) {
+            List<Integer> otherSolution = otherSolver.join();
+            if (otherSolution != null) return addPath(otherSolution, otherSolver.start);
+        }
+
+        // List<Integer> solution1 = solver1.join();
+        // return addPath(solution1, solver1.start);
+
+        return null;
     }
 
     private List<Integer> addPath(List<Integer> oldAnswer, int end) {
@@ -218,7 +255,7 @@ public class ForkJoinSolver extends SequentialSolver {
             newAnswer.addAll(oldAnswer);
             return newAnswer;
         }
-        
+
         return null;
     }
 
@@ -230,8 +267,10 @@ public class ForkJoinSolver extends SequentialSolver {
             // Catching null pointer exceptions, instead of checking if null
             // because when doing this concurrently, a check may allready
             // be outdated when doing the stop() operation
-            try { solver1.stop(); } catch (NullPointerException e) { }
-            try { solver2.stop(); } catch (NullPointerException e) { }
+            try { solver.stop(); } catch (NullPointerException e) { }
+            for (ForkJoinSolver otherSolver : this.solverList) {
+                try { otherSolver.stop(); } catch (NullPointerException e) { }
+            }
 
             if (parent != null) parent.stop();
         }
