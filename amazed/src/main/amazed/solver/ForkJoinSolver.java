@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * <code>ForkJoinSolver</code> implements a solver for
@@ -26,13 +27,7 @@ public class ForkJoinSolver extends SequentialSolver {
 
     private int steps;
     private int player;
-
-    private boolean stop;
-
-    private ForkJoinSolver parent;
-
-    private ForkJoinSolver solver;
-    private List<ForkJoinSolver> solverList;
+    private AtomicBoolean stop;
 
     /**
      * Creates a solver that searches in <code>maze</code> from the
@@ -44,10 +39,9 @@ public class ForkJoinSolver extends SequentialSolver {
         super(maze);
 
         this.start = maze.start();
-
         steps = 0;
         player = -1;
-        stop = false;
+        stop = new AtomicBoolean();
     }
 
     /**
@@ -68,25 +62,18 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            ForkJoinSolver parent) {
+            int start, AtomicBoolean stop) {
         this(maze, forkAfter);
 
-        this.parent = parent;
         this.visited = visited;
-    }
-
-
-    private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            ForkJoinSolver parent, int start) {
-        this(maze, forkAfter, visited, parent);
-
         this.start = start;
         this.frontier.push(start);
+        this.stop = stop;
     }
 
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
-            ForkJoinSolver parent, int start, int player) {
-        this(maze, forkAfter, visited, parent, start);
+            int start, AtomicBoolean stop, int player) {
+        this(maze, forkAfter, visited, start, stop);
 
         this.player = player;
     }
@@ -119,7 +106,7 @@ public class ForkJoinSolver extends SequentialSolver {
         if (!visited.contains(start)) frontier.push(this.start);
         if (this.player == -1) player = maze.newPlayer(this.start);
 
-        while (!frontier.isEmpty() && !this.stop) {
+        while (!frontier.isEmpty() && !this.stop.get()) {
 
             if (this.steps < this.forkAfter) {
                 List<Integer> result = sequentialDepthFirstStep();
@@ -142,17 +129,14 @@ public class ForkJoinSolver extends SequentialSolver {
 
         if (maze.hasGoal(current)) {
             maze.move(this.player, current);
+            this.stop.set(true);
 
-            this.stop = true;
-            if (this.parent != null) this.parent.stop();
-
-            List<Integer> path = pathFromTo(this.start, current);
-            return path;
+            // List<Integer> path = pathFromTo(this.start, current);
+            // return path;
+            return pathFromTo(this.start, current);
         }
 
         if (!visited.contains(current)) {
-            System.out.println("Visited: "+current+", player: "+player);
-
             visited.add(current);
             maze.move(this.player, current);
             this.steps++;
@@ -168,35 +152,39 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     private List<Integer> forkOperation() {
-        this.solverList = new ArrayList<>();
+        List<ForkJoinSolver> childList = new ArrayList<>();
 
         int firstUnvisited = 0;
         do {
-            if (this.frontier.empty()) return null;
+            if (this.frontier.empty() || this.stop.get()) return null;
 
             firstUnvisited = this.frontier.pop();
         } while (visited.contains(firstUnvisited));
 
         while(!this.frontier.isEmpty()) {
+            if (this.stop.get()) return null;
+
             int node = this.frontier.pop();
             if (!this.visited.contains(node)) {
 
-                ForkJoinSolver otherSolver = new ForkJoinSolver(maze, forkAfter,
-                    visited, this, node);
-                otherSolver.fork();
-                this.solverList.add(otherSolver);
+                ForkJoinSolver secondaryChild = new ForkJoinSolver(maze,
+                    forkAfter, visited, node, this.stop);
+                secondaryChild.fork();
+                childList.add(secondaryChild);
             }
         }
 
-        solver = new ForkJoinSolver(maze, forkAfter,
-            visited, this, firstUnvisited, player);
+        ForkJoinSolver primaryChild = new ForkJoinSolver(maze, forkAfter,
+            visited, firstUnvisited, this.stop, player);
 
-        List<Integer> solution = solver.compute();
-        if (solution != null) return addPath(solution, solver.start);
+        List<Integer> primarySolution = primaryChild.compute();
+        if (primarySolution != null)
+            return addPath(primarySolution, primaryChild.start);
 
-        for (ForkJoinSolver otherSolver : this.solverList) {
-            List<Integer> otherSolution = otherSolver.join();
-            if (otherSolution != null) return addPath(otherSolution, otherSolver.start);
+        for (ForkJoinSolver secondaryChild : childList) {
+            List<Integer> secondarySolution = secondaryChild.join();
+            if (secondarySolution != null)
+                return addPath(secondarySolution, secondaryChild.start);
         }
 
         return null;
@@ -211,24 +199,5 @@ public class ForkJoinSolver extends SequentialSolver {
         }
 
         return null;
-    }
-
-    // Stops other processes when the goal is found
-    public void stop() {
-        if (!stop) {
-            stop = true;
-
-            // Catching null pointer exceptions, instead of checking if null
-            // because when doing this concurrently, a check may already
-            // be outdated when doing the stop() operation
-            try { solver.stop(); } catch (NullPointerException e) { }
-
-            // Try to stop each of one of the other solvers in the solverList
-            for (ForkJoinSolver otherSolver : this.solverList) {
-                try { otherSolver.stop(); } catch (NullPointerException e) { }
-            }
-
-            if (parent != null) parent.stop();
-        }
     }
 }
