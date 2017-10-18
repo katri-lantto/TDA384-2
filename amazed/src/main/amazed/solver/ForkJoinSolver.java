@@ -42,6 +42,7 @@ public class ForkJoinSolver extends SequentialSolver {
         steps = 0;
         player = -1;
         stop = new AtomicBoolean();
+        this.forkAfter = 1;
     }
 
     /**
@@ -61,6 +62,11 @@ public class ForkJoinSolver extends SequentialSolver {
         this.forkAfter = forkAfter;
     }
 
+    // The following two constructors deals with the forking objects;
+    // the new ForkJoinSolver objects that is created after every forkAfter steps.
+
+    // This one take in addition also the two global data structures: visitied
+    // and stop; and also the local starting position of this local fork.
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
             int start, AtomicBoolean stop) {
         this(maze, forkAfter);
@@ -71,6 +77,8 @@ public class ForkJoinSolver extends SequentialSolver {
         this.stop = stop;
     }
 
+    // In addition to the above constructor, this one also re-use a player,
+    // instead of creating a new one.
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
             int start, AtomicBoolean stop, int player) {
         this(maze, forkAfter, visited, start, stop);
@@ -78,6 +86,8 @@ public class ForkJoinSolver extends SequentialSolver {
         this.player = player;
     }
 
+    // Since we need to share the visited data structure between forks, this
+    // method is overridden to incorporate a concurrently safe data structure.
     @Override
     protected void initStructures() {
         this.visited = new ConcurrentSkipListSet<>();
@@ -101,6 +111,8 @@ public class ForkJoinSolver extends SequentialSolver {
         return parallelDepthFirstSearch();
     }
 
+    // A big wrapper method for the whole algorithm, which loops until either
+    // no more nodes is left to explore, or a goal is found.
     private List<Integer> parallelDepthFirstSearch() {
 
         if (!visited.contains(start)) frontier.push(this.start);
@@ -108,10 +120,12 @@ public class ForkJoinSolver extends SequentialSolver {
 
         while (!frontier.isEmpty() && !this.stop.get()) {
 
+            // The sequential bit
             if (this.steps < this.forkAfter) {
                 List<Integer> result = sequentialDepthFirstStep();
                 if (result != null) return result;
 
+            // The parallel bit
             } else {
                 return forkOperation();
             }
@@ -121,21 +135,22 @@ public class ForkJoinSolver extends SequentialSolver {
     }
 
     // Basically the same as SequentialSolver's depthFirstSearch(),
-    // but without the loop
+    // but without the loop. Some small changes to make way for concurrent
+    // forking.
     private List<Integer> sequentialDepthFirstStep() {
         if (this.frontier.empty()) return null;
 
         int current = frontier.pop();
 
+        // When the goal is found, end search and return answer
         if (maze.hasGoal(current)) {
             maze.move(this.player, current);
             this.stop.set(true);
 
-            // List<Integer> path = pathFromTo(this.start, current);
-            // return path;
             return pathFromTo(this.start, current);
         }
 
+        // Otherwise, search for new nodes to visit, and keep on going
         if (!visited.contains(current)) {
             visited.add(current);
             maze.move(this.player, current);
@@ -154,6 +169,7 @@ public class ForkJoinSolver extends SequentialSolver {
     private List<Integer> forkOperation() {
         List<ForkJoinSolver> childList = new ArrayList<>();
 
+        // First we save the first unvisited node, for laters
         int firstUnvisited = 0;
         do {
             if (this.frontier.empty() || this.stop.get()) return null;
@@ -161,6 +177,7 @@ public class ForkJoinSolver extends SequentialSolver {
             firstUnvisited = this.frontier.pop();
         } while (visited.contains(firstUnvisited));
 
+        // Then we create new fork objects for every other unvisted node
         while(!this.frontier.isEmpty()) {
             if (this.stop.get()) return null;
 
@@ -174,6 +191,8 @@ public class ForkJoinSolver extends SequentialSolver {
             }
         }
 
+        // Now, the local child object is created, starting at the previously
+        // saved first item in frontier, and is computed directly
         ForkJoinSolver primaryChild = new ForkJoinSolver(maze, forkAfter,
             visited, firstUnvisited, this.stop, player);
 
@@ -181,6 +200,8 @@ public class ForkJoinSolver extends SequentialSolver {
         if (primarySolution != null)
             return addPath(primarySolution, primaryChild.start);
 
+        // Lastly, if the solution is not allready found, we go through all the
+        // children forks and see if any one of them has found the goal
         for (ForkJoinSolver secondaryChild : childList) {
             List<Integer> secondarySolution = secondaryChild.join();
             if (secondarySolution != null)
@@ -190,6 +211,9 @@ public class ForkJoinSolver extends SequentialSolver {
         return null;
     }
 
+    // A utility method that takes a local solution from a child, and expand
+    // it to incorporate this objects path. All of this is then returned,
+    // so that its parent can keep on expanding the solution, until it is complete.
     private List<Integer> addPath(List<Integer> oldAnswer, int end) {
         if (oldAnswer != null) {
             oldAnswer.remove(0);
