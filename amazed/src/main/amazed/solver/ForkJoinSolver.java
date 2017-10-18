@@ -166,6 +166,9 @@ public class ForkJoinSolver extends SequentialSolver {
         return null;
     }
 
+    // Method for performing the fork operation, invoked by
+    // the method parallelDepthFirstSearch() when it's time
+    // to do a fork.
     private List<Integer> forkOperation() {
         List<ForkJoinSolver> childList = new ArrayList<>();
 
@@ -181,6 +184,10 @@ public class ForkJoinSolver extends SequentialSolver {
         while(!this.frontier.isEmpty()) {
             if (this.stop.get()) return null;
 
+            // Pop a node from the list of frontiers, check if this node is
+            // already visited. If it is not, create a new instance of the
+            // ForkJoinSolver class and fork. Also adding the new instance
+            // to a list of children because we need to join them all in the end.
             int node = this.frontier.pop();
             if (!this.visited.contains(node)) {
 
