@@ -70,7 +70,7 @@ public class ForkJoinSolver extends SequentialSolver {
     private ForkJoinSolver(Maze maze, int forkAfter, Set<Integer> visited,
             ForkJoinSolver parent) {
         this(maze, forkAfter);
-        
+
         this.parent = parent;
         this.visited = visited;
     }
@@ -219,10 +219,11 @@ public class ForkJoinSolver extends SequentialSolver {
             stop = true;
 
             // Catching null pointer exceptions, instead of checking if null
-            // because when doing this concurrently, a check may allready
+            // because when doing this concurrently, a check may already
             // be outdated when doing the stop() operation
             try { solver.stop(); } catch (NullPointerException e) { }
 
+            // Try to stop each of one of the other solvers in the solverList
             for (ForkJoinSolver otherSolver : this.solverList) {
                 try { otherSolver.stop(); } catch (NullPointerException e) { }
             }
