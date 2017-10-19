@@ -184,7 +184,7 @@ public class ForkJoinSolver extends SequentialSolver {
         while(!this.frontier.isEmpty()) {
             if (this.stop.get()) return null;
 
-            // Pop a node from the list of frontiers, check if this node is
+            // Pop a node from the stack of frontiers, check if this node is
             // already visited. If it is not, create a new instance of the
             // ForkJoinSolver class and fork. Also adding the new instance
             // to a list of children because we need to join them all in the end.
